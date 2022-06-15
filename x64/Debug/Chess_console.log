@@ -1,6 +1,0 @@
-﻿  helperClass.cpp
-C:\Users\henri\My Drive\Coding Training\Cpp projects\github\simpleChessEngine\helperClass.cpp(120,2): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
-C:\Users\henri\My Drive\Coding Training\Cpp projects\github\simpleChessEngine\helperClass.cpp(75,6): warning C4101: 'min_pos': unreferenced local variable
-  main.cpp
-  Generating Code...
-  Chess_console.vcxproj -> C:\Users\henri\My Drive\Coding Training\Cpp projects\github\simpleChessEngine\x64\Debug\Chess_console.exe
