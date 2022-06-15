@@ -1,26 +1,11 @@
-CC=gcc
-CXX=g++
+run: clean
+	@./main
 
-BUILD_DIR = ../build/lnx
+clean: link
+	@rm *.o
 
-CFLAGS  = -Wall -stdc++11
+link: object
+	@gcc -lstdc++ *.o -o main
 
-SRCS=main.cpp user_interface.cpp chess.cpp
-OBJS=main.o user_interface.o chess.o
-
-all: chess
-
-chess: $(OBJS)
-	$(CC) $(CFLAGS) -o $(BUILD_DIR)/chess_console $(OBJS)
-
-main.o: main.cpp
-
-user_interface.o: user_interface.cpp user_interface.h
-
-chess.o: chess.cpp chess.h
-
-clean:
-	rm -f $(OBJS)
-
-distclean: clean
-	rm -f $(BUILD_DIR)*
+object:
+	@gcc -std=c++11 -c *.cpp
