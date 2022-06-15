@@ -1,0 +1,11 @@
+{
+  "Version": 1,
+  "ProjectMap": {
+    "95561bc7-090a-4444-a8a7-39afd8b8a0b1": {
+      "ProjectGuid": "95561bc7-090a-4444-a8a7-39afd8b8a0b1",
+      "DisplayName": "Chess_console",
+      "ColorIndex": 0
+    }
+  },
+  "NextColorIndex": 1
+}

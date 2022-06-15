@@ -66,9 +66,9 @@ std::vector<std::vector<int>> helperClass::get_Moves_Piece(char piece_type, int 
 	}
 
 	if (piece_type == 'K' || piece_type == 'k') {
-		moves = { {pos_x - 1, pos_y + 1}, {pos_x , pos_y+1}, {pos_x + 1, pos_y + 1},
+		moves = { {pos_x - 1, pos_y + 1}, {pos_x , pos_y + 1}, {pos_x + 1, pos_y + 1},
 			{pos_x - 1, pos_y}, {pos_x + 1, pos_y},
-			{pos_x - 1, pos_y - 1}, {pos_x , pos_y - 1}, {pos_x - 1, pos_y - 1}
+			{pos_x - 1, pos_y - 1}, {pos_x , pos_y - 1}, {pos_x + 1, pos_y - 1}
 		};
 	}
 	std::vector<int> m;
