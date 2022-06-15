@@ -1,6 +1,8 @@
 ﻿#include "includes.h"
 #include "user_interface.h"
-#include "windows.h"
+#if defined _WIN32 || defined _WIN64
+    #include "windows.h"
+#endif
 
 
 
@@ -28,6 +30,39 @@ void clearScreen(void)
    system("cls");
 }
 
+std::string letterToSymbolUnix(char letter)
+{
+    switch (letter)
+    {
+        case 'p':
+            return "\u265F";
+        case 'k':
+            return "\u265A";
+        case 'q':
+            return "\u265B";
+        case 'r':
+            return "\u265C";
+        case 'b':
+            return "\u265D";
+        case 'n':
+            return "\u265E";
+        case 'P':
+            return "\u2659";
+        case 'K':
+            return "\u2654";
+        case 'Q':
+            return "\u2655";
+        case 'R':
+            return "\u2656";
+        case 'B':
+            return "\u2657";
+        case 'N':
+            return "\u2658";
+
+        default:
+            return " ";
+    }
+}
 wchar_t* letterToSymbol(char letter)
 {
     switch (letter)
@@ -127,9 +162,13 @@ void printLine(int iLine, int iColor1, int iColor2, Game& game)
             // For 6 sub-columns, sub-column 3
             if ( subLine == 1 && subColumn == 3)
             {
-                HANDLE handle = GetStdHandle(STD_OUTPUT_HANDLE);
-                DWORD written = 0;
-                WriteConsoleW(handle, letterToSymbol(game.getPieceAtPosition(iLine, iPair * 2)), 1, &written, NULL);
+                #if defined _WIN32 || defined _WIN64
+                    HANDLE handle = GetStdHandle(STD_OUTPUT_HANDLE);
+                    DWORD written = 0;
+                    WriteConsoleW(handle, letterToSymbol(game.getPieceAtPosition(iLine, iPair * 2)), 1, &written, NULL);
+                #else
+                    cout << letterToSymbolUnix(game.getPieceAtPosition(iLine, iPair * 2));
+                #endif
 
             }
             else
@@ -156,10 +195,13 @@ void printLine(int iLine, int iColor1, int iColor2, Game& game)
             // For 6 sub-columns, sub-column 3
             if ( subLine == 1 && subColumn == 3)
             {
-                HANDLE handle = GetStdHandle(STD_OUTPUT_HANDLE);
-                DWORD written = 0;
-                WriteConsoleW(handle, letterToSymbol(game.getPieceAtPosition(iLine, iPair * 2+1)), 1, &written, NULL);
-               //cout << char(game.getPieceAtPosition(iLine,iPair*2+1) != 0x20 ? game.getPieceAtPosition(iLine,iPair*2+1) : iColor2);
+                #if defined _WIN32 || defined _WIN64
+                    HANDLE handle = GetStdHandle(STD_OUTPUT_HANDLE);
+                    DWORD written = 0;
+                    WriteConsoleW(handle, letterToSymbol(game.getPieceAtPosition(iLine, iPair * 2+1)), 1, &written, NULL);
+                #else
+                    cout << letterToSymbolUnix(game.getPieceAtPosition(iLine, iPair * 2+1));
+                #endif
             }
             else
             {
