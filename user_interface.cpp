@@ -26,8 +26,12 @@ void appendToNextMessage( string msg )
    next_message += msg;
 }
 void clearScreen(void)
-{
-   system("cls");
+{  
+    #if defined _WIN32 || defined _WIN64
+        system("cls");
+    #else
+        system("clear");
+    #endif
 }
 
 std::string letterToSymbolUnix(char letter)
@@ -63,6 +67,7 @@ std::string letterToSymbolUnix(char letter)
             return " ";
     }
 }
+
 wchar_t* letterToSymbol(char letter)
 {
     switch (letter)
@@ -216,9 +221,7 @@ void printLine(int iLine, int iColor1, int iColor2, Game& game)
       {
          cout << " " << iLine+1;
       }
-
       cout << "\n";
-
    }
 }
 
