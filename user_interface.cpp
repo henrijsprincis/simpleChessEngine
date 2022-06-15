@@ -23,6 +23,40 @@ void clearScreen(void)
    system("cls");
 }
 
+std::string letterToSymbol(char letter)
+{
+    switch (letter)
+    {
+        case 'p':
+            return "\u265F";
+        case 'k':
+            return "\u265A";
+        case 'q':
+            return "\u265B";
+        case 'r':
+            return "\u265C";
+        case 'b':
+            return "\u265D";
+        case 'n':
+            return "\u265E";
+        case 'P':
+            return "\u2659";
+        case 'K':
+            return "\u2654";
+        case 'Q':
+            return "\u2655";
+        case 'R':
+            return "\u2656";
+        case 'B':
+            return "\u2657";
+        case 'N':
+            return "\u2658";
+
+        default:
+            return " ";
+    }
+}
+
 void printLogo(void)
 {
    cout << "    ======================================\n";
@@ -71,6 +105,15 @@ void printLine(int iLine, int iColor1, int iColor2, Game& game)
       // in 4 iPairs of black&white
       for (int iPair = 0; iPair < 4; iPair++)
       {
+          if (iColor1 == 'W')
+          {
+              cout << "\033[30;47m";
+          }
+          else
+          {
+              cout << "\033[38;5;232m";
+              cout << "\033[48;5;244m";
+          }
          // First cell of the pair
          for (int subColumn = 0; subColumn < CELL; subColumn++)
          {
@@ -79,13 +122,24 @@ void printLine(int iLine, int iColor1, int iColor2, Game& game)
             // For 6 sub-columns, sub-column 3
             if ( subLine == 1 && subColumn == 3)
             {
-               cout << char(game.getPieceAtPosition(iLine, iPair*2) != 0x20 ? game.getPieceAtPosition(iLine, iPair*2) : iColor1);
+                cout << letterToSymbol(game.getPieceAtPosition(iLine, iPair*2) != 0x20 ? game.getPieceAtPosition(iLine, iPair*2) : ' ');
+               //cout << char(game.getPieceAtPosition(iLine, iPair*2) != 0x20 ? game.getPieceAtPosition(iLine, iPair*2) : iColor1);
             }
             else
             {
-               cout << char(iColor1);
+               cout << char(' ');
             }
          }
+
+          if (iColor2 == 'W')
+          {
+              cout << "\033[30;47m";
+          }
+          else
+          {
+              cout << "\033[38;5;232m";
+              cout << "\033[48;5;244m";
+          }
 
          // Second cell of the pair
          for (int subColumn = 0; subColumn < CELL; subColumn++)
@@ -95,13 +149,15 @@ void printLine(int iLine, int iColor1, int iColor2, Game& game)
             // For 6 sub-columns, sub-column 3
             if ( subLine == 1 && subColumn == 3)
             {
-               cout << char(game.getPieceAtPosition(iLine,iPair*2+1) != 0x20 ? game.getPieceAtPosition(iLine,iPair*2+1) : iColor2);
+                cout << letterToSymbol(game.getPieceAtPosition(iLine, iPair*2+1) != 0x20 ? game.getPieceAtPosition(iLine, iPair*2+1) : ' ');
+               //cout << char(game.getPieceAtPosition(iLine,iPair*2+1) != 0x20 ? game.getPieceAtPosition(iLine,iPair*2+1) : iColor2);
             }
             else
             {
-               cout << char(iColor2);
+               cout << char(' ');
             }
          }
+         cout << "\033[0m";
       }
 
       // Write the number of the line on the right

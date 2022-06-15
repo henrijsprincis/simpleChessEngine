@@ -3,7 +3,7 @@ CXX=g++
 
 BUILD_DIR = ../build/lnx
 
-CFLAGS  = -Wall -std=c++11
+CFLAGS  = -Wall -stdc++11
 
 SRCS=main.cpp user_interface.cpp chess.cpp
 OBJS=main.o user_interface.o chess.o
@@ -11,7 +11,7 @@ OBJS=main.o user_interface.o chess.o
 all: chess
 
 chess: $(OBJS)
-	$(CXX) $(CFLAGS) -o $(BUILD_DIR)/chess_console $(OBJS)
+	$(CC) $(CFLAGS) -o $(BUILD_DIR)/chess_console $(OBJS)
 
 main.o: main.cpp
 
