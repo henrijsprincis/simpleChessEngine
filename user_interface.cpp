@@ -134,7 +134,7 @@ void printLine(int iLine, int iColor1, int iColor2, Game& game)
    // It represents how many horizontal characters will form one square
    // The number of vertical characters will be CELL/2
    // You can change it to alter the size of the board (an odd number will make the squares look rectangular)
-   int CELL = 6;
+   int CELL = 2;
 
    // Since the width of the characters BLACK and WHITE is half of the height,
    // we need to use two characters in a row.
@@ -160,7 +160,7 @@ void printLine(int iLine, int iColor1, int iColor2, Game& game)
             // The piece should be in the "middle" of the cell
             // For 3 sub-lines, in sub-line 1
             // For 6 sub-columns, sub-column 3
-            if ( subLine == 1 && subColumn == 3)
+            if ( subLine == 0 && subColumn == 1)
             {
                 #if defined _WIN32 || defined _WIN64
                     HANDLE handle = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -193,7 +193,7 @@ void printLine(int iLine, int iColor1, int iColor2, Game& game)
             // The piece should be in the "middle" of the cell
             // For 3 sub-lines, in sub-line 1
             // For 6 sub-columns, sub-column 3
-            if ( subLine == 1 && subColumn == 3)
+            if ( subLine == 0 && subColumn == 1)
             {
                 #if defined _WIN32 || defined _WIN64
                     HANDLE handle = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -212,9 +212,9 @@ void printLine(int iLine, int iColor1, int iColor2, Game& game)
       }
 
       // Write the number of the line on the right
-      if ( 1 == subLine )
+      if ( 0 == subLine )
       {
-         cout << "   " << iLine+1;
+         cout << " " << iLine+1;
       }
 
       cout << "\n";
@@ -277,7 +277,7 @@ void printSituation(Game& game)
 
 void printBoard(Game& game)
 {
-   cout << "   A     B     C     D     E     F     G     H\n\n";
+   cout << " A B C D E F G H\n\n";
 
    for (int iLine = 7; iLine >= 0; iLine--)
    {
