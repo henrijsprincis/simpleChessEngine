@@ -1,5 +1,5 @@
 ifeq ($(OS),Windows_NT) 
-run: clean
+run:
 	echo TODO: Windows makefile
 else
 run: clean

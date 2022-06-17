@@ -846,7 +846,10 @@ bool movePieceMain(void)
 
         // Set col and row
         present.iColumn = toupper(move_from[move_from.length() - 2]);
-        present.iRow = move_from[move_from.length() - 1];
+        present.iRow = move_from[move_from.length() - 1] - 2;
+
+        cout << move_from << endl;
+        cout << char(present.iColumn) << char(present.iRow) << endl;
 
         // Check square on board
 
@@ -871,16 +874,19 @@ bool movePieceMain(void)
         }
 
         // Put in the string to be logged
-        to_record += move_from
+        to_record += move_from;
 
-            char chPiece = current_game->getPieceAtPosition(present.iRow, present.iColumn);
+        present.iColumn -= 'A';
+        present.iRow -= '1';
+
+        char chPiece = current_game->getPieceAtPosition(present.iRow, present.iColumn);
         // current_game->printOutBoard();
 
         cout << "Piece is " << char(chPiece) << "\n";
 
         if (Chess::WHITE_PIECE == current_game->getCurrentTurn())
         {
-            if (false == Chess::isWhitePiece(chPiece))
+            if (Chess::isBlackPiece(chPiece))
             {
                 createNextMessage("It is WHITE's turn and you picked a BLACK piece\n");
                 return success;
@@ -888,7 +894,7 @@ bool movePieceMain(void)
         }
         else
         {
-            if (false == Chess::isBlackPiece(chPiece))
+            if (false == Chess::isWhitePiece(chPiece))
             {
                 createNextMessage("It is BLACK's turn and you picked a WHITE piece\n");
                 return success;
@@ -900,6 +906,155 @@ bool movePieceMain(void)
             createNextMessage("You picked an EMPTY square.\n");
             return success;
         }
+
+        // ---------------------------------------------------
+        // Get user input for the square to move to
+        // ---------------------------------------------------
+        // cout << "Move to: ";
+        // std::string move_to;
+        // getline(cin, move_to);
+
+        // if (move_to.length() > 2)
+        // {
+        //     createNextMessage("You should type only two characters (column and row)\n");
+        //     return success;
+        // }
+
+        // ---------------------------------------------------
+        // Did the user pick a valid house to move?
+        // Must check if:
+        // - It's inside the board (A1-H8)
+        // - The move is valid
+        // ---------------------------------------------------
+        Chess::Position future;
+        future.iColumn = present.iColumn + 'A';
+        future.iRow = present.iRow + '1' + 2;
+
+        future.iColumn = toupper(future.iColumn);
+
+        if (future.iColumn < 'A' || future.iColumn > 'H')
+        {
+            createNextMessage("Invalid column.\n");
+            return success;
+        }
+
+        if (future.iRow < '0' || future.iRow > '8')
+        {
+            createNextMessage("Invalid row.\n");
+            return success;
+        }
+
+        // Put in the string to be logged
+        to_record += future.iColumn;
+        to_record += future.iRow;
+
+        // Convert columns from ['A'-'H'] to [0x00-0x07]
+        future.iColumn = future.iColumn - 'A';
+
+        // Convert row from ['1'-'8'] to [0x00-0x07]
+        future.iRow = future.iRow - '1';
+
+        // Check if it is not the exact same square
+        if (future.iRow == present.iRow && future.iColumn == present.iColumn)
+        {
+            createNextMessage("[Invalid] You picked the same square!\n");
+            return success;
+        }
+
+        // Is that move allowed?
+        Chess::EnPassant S_enPassant = {0};
+        Chess::Castling S_castling = {0};
+        Chess::Promotion S_promotion = {0};
+
+        if (false == isMoveValid(present, future, &S_enPassant, &S_castling, &S_promotion))
+        {
+            createNextMessage("[Invalid] Piece can not move to that square!\n");
+            return success;
+        }
+
+        // ---------------------------------------------------
+        // Promotion: user most choose a piece to
+        // replace the pawn
+        // ---------------------------------------------------
+        if (S_promotion.bApplied == true)
+        {
+            cout << "Promote to (Q, R, N, B): ";
+            std::string piece;
+            getline(cin, piece);
+
+            if (piece.length() > 1)
+            {
+                createNextMessage("You should type only one character (Q, R, N or B)\n");
+                return success;
+            }
+
+            char chPromoted = toupper(piece[0]);
+
+            if (chPromoted != 'Q' && chPromoted != 'R' && chPromoted != 'N' && chPromoted != 'B')
+            {
+                createNextMessage("Invalid character.\n");
+                return success;
+            }
+
+            S_promotion.chBefore = current_game->getPieceAtPosition(present.iRow, present.iColumn);
+
+            if (Chess::WHITE_PLAYER == current_game->getCurrentTurn())
+            {
+                S_promotion.chAfter = toupper(chPromoted);
+            }
+            else
+            {
+                S_promotion.chAfter = tolower(chPromoted);
+            }
+
+            to_record += '=';
+            to_record += toupper(chPromoted); // always log with a capital letter
+        }
+
+        // ---------------------------------------------------
+        // Log the move: do it prior to making the move
+        // because we need the getCurrentTurn()
+        // ---------------------------------------------------
+        current_game->logMove(to_record);
+
+        // ---------------------------------------------------
+        // Make the move
+        // ---------------------------------------------------
+        makeTheMove(present, future, &S_enPassant, &S_castling, &S_promotion);
+
+        // ---------------------------------------------------------------
+        // Check if this move we just did put the oponent's king in check
+        // Keep in mind that player turn has already changed
+        // ---------------------------------------------------------------
+        if (true == current_game->playerKingInCheck())
+        {
+            if (true == current_game->isCheckMate())
+            {
+                if (Chess::WHITE_PLAYER == current_game->getCurrentTurn())
+                {
+                    appendToNextMessage("Checkmate! Black wins the game!\n");
+                }
+                else
+                {
+                    appendToNextMessage("Checkmate! White wins the game!\n");
+                }
+            }
+            else
+            {
+                // Add to the string with '+=' because it's possible that
+                // there is already one message (e.g., piece captured)
+                if (Chess::WHITE_PLAYER == current_game->getCurrentTurn())
+                {
+                    appendToNextMessage("White king is in check!\n");
+                }
+                else
+                {
+                    appendToNextMessage("Black king is in check!\n");
+                }
+            }
+        }
+
+        return true;
 
         if (move_from.length() == 2)
         {
@@ -920,155 +1075,6 @@ bool movePieceMain(void)
             }
         }
     }
-
-    // ---------------------------------------------------
-    // Get user input for the square to move to
-    // ---------------------------------------------------
-    // cout << "Move to: ";
-    // std::string move_to;
-    // getline(cin, move_to);
-
-    // if (move_to.length() > 2)
-    // {
-    //     createNextMessage("You should type only two characters (column and row)\n");
-    //     return success;
-    // }
-
-    // ---------------------------------------------------
-    // Did the user pick a valid house to move?
-    // Must check if:
-    // - It's inside the board (A1-H8)
-    // - The move is valid
-    // ---------------------------------------------------
-    Chess::Position future;
-    future.iColumn = move_to[0];
-    future.iRow = move_to[1];
-
-    future.iColumn = toupper(future.iColumn);
-
-    if (future.iColumn < 'A' || future.iColumn > 'H')
-    {
-        createNextMessage("Invalid column.\n");
-        return success;
-    }
-
-    if (future.iRow < '0' || future.iRow > '8')
-    {
-        createNextMessage("Invalid row.\n");
-        return success;
-    }
-
-    // Put in the string to be logged
-    to_record += future.iColumn;
-    to_record += future.iRow;
-
-    // Convert columns from ['A'-'H'] to [0x00-0x07]
-    future.iColumn = future.iColumn - 'A';
-
-    // Convert row from ['1'-'8'] to [0x00-0x07]
-    future.iRow = future.iRow - '1';
-
-    // Check if it is not the exact same square
-    if (future.iRow == present.iRow && future.iColumn == present.iColumn)
-    {
-        createNextMessage("[Invalid] You picked the same square!\n");
-        return success;
-    }
-
-    // Is that move allowed?
-    Chess::EnPassant S_enPassant = {0};
-    Chess::Castling S_castling = {0};
-    Chess::Promotion S_promotion = {0};
-
-    if (false == isMoveValid(present, future, &S_enPassant, &S_castling, &S_promotion))
-    {
-        createNextMessage("[Invalid] Piece can not move to that square!\n");
-        return success;
-    }
-
-    // ---------------------------------------------------
-    // Promotion: user most choose a piece to
-    // replace the pawn
-    // ---------------------------------------------------
-    if (S_promotion.bApplied == true)
-    {
-        cout << "Promote to (Q, R, N, B): ";
-        std::string piece;
-        getline(cin, piece);
-
-        if (piece.length() > 1)
-        {
-            createNextMessage("You should type only one character (Q, R, N or B)\n");
-            return success;
-        }
-
-        char chPromoted = toupper(piece[0]);
-
-        if (chPromoted != 'Q' && chPromoted != 'R' && chPromoted != 'N' && chPromoted != 'B')
-        {
-            createNextMessage("Invalid character.\n");
-            return success;
-        }
-
-        S_promotion.chBefore = current_game->getPieceAtPosition(present.iRow, present.iColumn);
-
-        if (Chess::WHITE_PLAYER == current_game->getCurrentTurn())
-        {
-            S_promotion.chAfter = toupper(chPromoted);
-        }
-        else
-        {
-            S_promotion.chAfter = tolower(chPromoted);
-        }
-
-        to_record += '=';
-        to_record += toupper(chPromoted); // always log with a capital letter
-    }
-
-    // ---------------------------------------------------
-    // Log the move: do it prior to making the move
-    // because we need the getCurrentTurn()
-    // ---------------------------------------------------
-    current_game->logMove(to_record);
-
-    // ---------------------------------------------------
-    // Make the move
-    // ---------------------------------------------------
-    makeTheMove(present, future, &S_enPassant, &S_castling, &S_promotion);
-
-    // ---------------------------------------------------------------
-    // Check if this move we just did put the oponent's king in check
-    // Keep in mind that player turn has already changed
-    // ---------------------------------------------------------------
-    if (true == current_game->playerKingInCheck())
-    {
-        if (true == current_game->isCheckMate())
-        {
-            if (Chess::WHITE_PLAYER == current_game->getCurrentTurn())
-            {
-                appendToNextMessage("Checkmate! Black wins the game!\n");
-            }
-            else
-            {
-                appendToNextMessage("Checkmate! White wins the game!\n");
-            }
-        }
-        else
-        {
-            // Add to the string with '+=' because it's possible that
-            // there is already one message (e.g., piece captured)
-            if (Chess::WHITE_PLAYER == current_game->getCurrentTurn())
-            {
-                appendToNextMessage("White king is in check!\n");
-            }
-            else
-            {
-                appendToNextMessage("Black king is in check!\n");
-            }
-        }
-    }
-
-    return true;
 }
 
 bool movePieceComputerInt(int from_x, int from_y, int to_x, int to_y, bool debug)
@@ -1538,7 +1544,7 @@ int main()
         if (input.length() != 1)
         {
             // Check if input is valid algebraic notation
-            if (input.lengt() == 2)
+            if (input.length() == 2)
             {
                 // Pawn move, e.g. d4
             }
