@@ -855,6 +855,11 @@ bool movePieceMain(void)
     // Convert row from ['1'-'8'] to [0x00-0x07]
     future.iRow = future.iRow - '1';
 
+    // Is that move allowed?
+    Chess::EnPassant S_enPassant = {0};
+    Chess::Castling S_castling = {0};
+    Chess::Promotion S_promotion = {0};
+
     // Parse algebraic notation
 
     // Special cases
@@ -902,25 +907,48 @@ bool movePieceMain(void)
         }
         else if (move_from.length() == 3)
         {
+            cout << "Three characters!!\n";
             // Piece move
             // e.g., Nc4
             char piece = move_from[0];
-
+            bool piece_found = false;
+            int correct_row;
+            int correct_col;
             for (int row = 0; row < 8; row++)
             {
+                cout << "Row " << row << endl;
                 for (int col = 0; col < 8; col++)
                 {
+                    cout << "Col " << col << endl;
                     char pieceAtPosition = current_game->getPieceAtPosition(row, col);
-                    if (pieceAtPosition == piece)
+                    cout << pieceAtPosition << endl;
+                    if (Chess::isWhitePiece(pieceAtPosition) == true)
                     {
-                        // This could be the piece to move
-                        // Check if that move would be legal
-                        if (isMoveValid())
+                        if (pieceAtPosition == piece)
                         {
-                            // Move is valid, make it
+                            cout << "Match found\n";
+                            // This could be the piece to move
+                            // Check if that move would be legal
+                            present.iColumn = col;
+                            present.iRow = row;
+                            if (isMoveValid(present, future, &S_enPassant, &S_castling, &S_promotion))
+                            {
+                                // Move is valid, make it
+                                cout << "VALID\n";
+                                piece_found = !piece_found;
+                                correct_col = col;
+                                correct_row = row;
+                            }
                         }
                     }
                 }
+            }
+            if (piece_found)
+            {
+                char correct[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'};
+                present.iColumn = correct[correct_col];
+                present.iRow = correct_row + '1';
+                cout << char(present.iColumn) << char(present.iRow) << endl;
             }
         }
         else if (move_from.length() == 4)
@@ -1038,11 +1066,6 @@ bool movePieceMain(void)
             createNextMessage("[Invalid] You picked the same square!\n");
             return success;
         }
-
-        // Is that move allowed?
-        Chess::EnPassant S_enPassant = {0};
-        Chess::Castling S_castling = {0};
-        Chess::Promotion S_promotion = {0};
 
         if (false == isMoveValid(present, future, &S_enPassant, &S_castling, &S_promotion))
         {
