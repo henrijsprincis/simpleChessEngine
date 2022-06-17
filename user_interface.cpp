@@ -1,6 +1,13 @@
-#include "includes.h"
+﻿#include "includes.h"
 #include "user_interface.h"
+#if defined _WIN32 || defined _WIN64
+    #include "windows.h"
+#endif
 
+
+
+#include <stdio.h>
+#include <stdarg.h>
 // Save the next message to be displayed (regardind last command)
 string next_message;
 
@@ -19,8 +26,80 @@ void appendToNextMessage( string msg )
    next_message += msg;
 }
 void clearScreen(void)
+{  
+    #if defined _WIN32 || defined _WIN64
+        system("cls");
+    #else
+        system("clear");
+    #endif
+}
+
+std::string letterToSymbolUnix(char letter)
 {
-   system("cls");
+    switch (letter)
+    {
+        case 'p':
+            return "\u265F";
+        case 'k':
+            return "\u265A";
+        case 'q':
+            return "\u265B";
+        case 'r':
+            return "\u265C";
+        case 'b':
+            return "\u265D";
+        case 'n':
+            return "\u265E";
+        case 'P':
+            return "\u2659";
+        case 'K':
+            return "\u2654";
+        case 'Q':
+            return "\u2655";
+        case 'R':
+            return "\u2656";
+        case 'B':
+            return "\u2657";
+        case 'N':
+            return "\u2658";
+
+        default:
+            return " ";
+    }
+}
+
+wchar_t* letterToSymbol(char letter)
+{
+    switch (letter)
+    {
+        case 'p':
+            return L"\u265F";
+        case 'k':
+            return L"\u265A";
+        case 'q':
+            return L"\u265B";
+        case 'r':
+            return L"\u265C";
+        case 'b':
+            return L"\u265D";
+        case 'n':
+            return L"\u265E";
+        case 'P':
+            return L"\u2659";
+        case 'K':
+            return L"\u2654";
+        case 'Q':
+            return L"\u2655";
+        case 'R':
+            return L"\u2656";
+        case 'B':
+            return L"\u2657";
+        case 'N':
+            return L"\u2658";
+
+        default:
+            return L" ";
+    }
 }
 
 void printLogo(void)
@@ -60,7 +139,7 @@ void printLine(int iLine, int iColor1, int iColor2, Game& game)
    // It represents how many horizontal characters will form one square
    // The number of vertical characters will be CELL/2
    // You can change it to alter the size of the board (an odd number will make the squares look rectangular)
-   int CELL = 6;
+   int CELL = 2;
 
    // Since the width of the characters BLACK and WHITE is half of the height,
    // we need to use two characters in a row.
@@ -71,21 +150,47 @@ void printLine(int iLine, int iColor1, int iColor2, Game& game)
       // in 4 iPairs of black&white
       for (int iPair = 0; iPair < 4; iPair++)
       {
+          if (iColor1 == 'W')
+          {
+              cout << "\033[30;47m";
+          }
+          else
+          {
+              cout << "\033[38;5;232m";
+              cout << "\033[48;5;244m";
+          }
          // First cell of the pair
          for (int subColumn = 0; subColumn < CELL; subColumn++)
          {
             // The piece should be in the "middle" of the cell
             // For 3 sub-lines, in sub-line 1
             // For 6 sub-columns, sub-column 3
-            if ( subLine == 1 && subColumn == 3)
+            if ( subLine == 0 && subColumn == 1)
             {
-               cout << char(game.getPieceAtPosition(iLine, iPair*2) != 0x20 ? game.getPieceAtPosition(iLine, iPair*2) : iColor1);
+                #if defined _WIN32 || defined _WIN64
+                    HANDLE handle = GetStdHandle(STD_OUTPUT_HANDLE);
+                    DWORD written = 0;
+                    WriteConsoleW(handle, letterToSymbol(game.getPieceAtPosition(iLine, iPair * 2)), 1, &written, NULL);
+                #else
+                    cout << letterToSymbolUnix(game.getPieceAtPosition(iLine, iPair * 2));
+                #endif
+
             }
             else
             {
-               cout << char(iColor1);
+               cout << char(' ');
             }
          }
+
+          if (iColor2 == 'W')
+          {
+              cout << "\033[30;47m";
+          }
+          else
+          {
+              cout << "\033[38;5;232m";
+              cout << "\033[48;5;244m";
+          }
 
          // Second cell of the pair
          for (int subColumn = 0; subColumn < CELL; subColumn++)
@@ -93,25 +198,30 @@ void printLine(int iLine, int iColor1, int iColor2, Game& game)
             // The piece should be in the "middle" of the cell
             // For 3 sub-lines, in sub-line 1
             // For 6 sub-columns, sub-column 3
-            if ( subLine == 1 && subColumn == 3)
+            if ( subLine == 0 && subColumn == 1)
             {
-               cout << char(game.getPieceAtPosition(iLine,iPair*2+1) != 0x20 ? game.getPieceAtPosition(iLine,iPair*2+1) : iColor2);
+                #if defined _WIN32 || defined _WIN64
+                    HANDLE handle = GetStdHandle(STD_OUTPUT_HANDLE);
+                    DWORD written = 0;
+                    WriteConsoleW(handle, letterToSymbol(game.getPieceAtPosition(iLine, iPair * 2+1)), 1, &written, NULL);
+                #else
+                    cout << letterToSymbolUnix(game.getPieceAtPosition(iLine, iPair * 2+1));
+                #endif
             }
             else
             {
-               cout << char(iColor2);
+               cout << char(' ');
             }
          }
+         cout << "\033[0m";
       }
 
       // Write the number of the line on the right
-      if ( 1 == subLine )
+      if ( 0 == subLine )
       {
-         cout << "   " << iLine+1;
+         cout << " " << iLine+1;
       }
-
       cout << "\n";
-
    }
 }
 
@@ -170,7 +280,7 @@ void printSituation(Game& game)
 
 void printBoard(Game& game)
 {
-   cout << "   A     B     C     D     E     F     G     H\n\n";
+   cout << " A B C D E F G H\n\n";
 
    for (int iLine = 7; iLine >= 0; iLine--)
    {

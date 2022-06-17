@@ -159,7 +159,7 @@ public:
 
    void logMove( std::string &to_record );
 
-   vector<vector<char>> getAllPieces();
+   vector<vector<char> > getAllPieces();
 
    string getLastMove( void );
 

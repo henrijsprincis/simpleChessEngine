@@ -1437,7 +1437,8 @@ void computer_play_move(int white) {
         for (int a = 0; a < moves_piece.size(); a++) {//for every move on board
             moveTo = moves_piece[a];
             bool success = movePieceComputerInt(PiecePos[0],PiecePos[1], moveTo[0], moveTo[1], false);
-            //cout << "move from col: " << PiecePos[0] << " row: " << PiecePos[0] <<endl;cout << "SUCCESS: " << success << endl;
+            //debug
+            //if (current_game->board[PiecePos[1]][PiecePos[0]] == 'k') cout << "move from col: " << PiecePos[0] << " row: " << PiecePos[1] << "Move to: " << moveTo[0] << moveTo[1] << "SUCCESS: " << success << endl;
             if (success) {
                 moves_considered++;
                 int board_value = minimaxAB(depth-1, -1000, 1000, abs(white-1));
@@ -1461,6 +1462,7 @@ void computer_play_move(int white) {
         }
     }
     //do the move
+    cout << "Number of legal moves black: " << moves_considered << endl;
     bool success = movePieceComputerInt(best_from[0], best_from[1], best_to[0], best_to[1], true);
     if (success == false) {
         throw("Something bad");
@@ -1474,7 +1476,7 @@ void computer_play_move(int white) {
         printBoard(*current_game);
         cout << "elapsed time: " << elapsed_seconds.count() << "s" << endl;
         cout << "Heuristic value: " << best_value << endl;
-        cout << "Number of legal moves black: " << moves_considered << endl;
+        
     }
     
 }
