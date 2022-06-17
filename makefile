@@ -3,7 +3,7 @@ run: clean
 	echo TODO: Windows makefile
 else
 run: clean
-	@./main
+	@./main.out
 
 clean: link
 	@rm *.o
