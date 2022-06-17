@@ -828,6 +828,32 @@ bool movePieceMain(void)
     // }
 
     Chess::Position present;
+    Chess::Position future;
+    future.iColumn = toupper(move_from[move_from.length() - 2]);
+    future.iRow = move_from[move_from.length() - 1];
+
+    cout << char(future.iColumn) << char(future.iRow) << endl;
+
+    if (future.iColumn < 'A' || future.iColumn > 'H')
+    {
+        createNextMessage("Invalid input column.\n");
+        return success;
+    }
+
+    if (future.iRow < '0' || future.iRow > '8')
+    {
+        createNextMessage("Invalid row.\n");
+        return success;
+    }
+
+    // Put in the string to be logged
+    to_record += move_from;
+
+    // Convert columns from ['A'-'H'] to [0x00-0x07]
+    future.iColumn = future.iColumn - 'A';
+
+    // Convert row from ['1'-'8'] to [0x00-0x07]
+    future.iRow = future.iRow - '1';
 
     // Parse algebraic notation
 
@@ -844,12 +870,89 @@ bool movePieceMain(void)
     {
         // Some move other than castling
 
-        // Set col and row
-        present.iColumn = toupper(move_from[move_from.length() - 2]);
-        present.iRow = move_from[move_from.length() - 1] - 2;
+        if (move_from.length() == 2)
+        {
+            // Pawn move
+            if (future.iRow + '1' == '4')
+            {
+                // Check if double move is allowed
+                if (current_game->getPieceAtPosition(future.iRow - 2, future.iColumn) == 'P')
+                {
+                    // Set col and row
+                    present.iColumn = toupper(future.iColumn + 'A');
+                    present.iRow = (future.iRow - 2) + '1';
+                }
+                else if (current_game->getPieceAtPosition(future.iRow - 1, future.iColumn) == 'P')
+                {
+                    // Set col and row
+                    present.iColumn = toupper(move_from[move_from.length() - 2]);
+                    present.iRow = move_from[move_from.length() - 1] - 1;
+                }
+            }
+            else
+            {
+                // Check if single move is allowed
+                if (current_game->getPieceAtPosition(future.iRow - 1, future.iColumn) == 'P')
+                {
+                    // Set col and row
+                    present.iColumn = toupper(move_from[move_from.length() - 2]);
+                    present.iRow = move_from[move_from.length() - 1] - 1;
+                }
+            }
+        }
+        else if (move_from.length() == 3)
+        {
+            // Piece move
+            // e.g., Nc4
+            char piece = move_from[0];
 
-        cout << move_from << endl;
-        cout << char(present.iColumn) << char(present.iRow) << endl;
+            for (int row = 0; row < 8; row++)
+            {
+                for (int col = 0; col < 8; col++)
+                {
+                    char pieceAtPosition = current_game->getPieceAtPosition(row, col);
+                    if (pieceAtPosition == piece)
+                    {
+                        // This could be the piece to move
+                        // Check if that move would be legal
+                        if (isMoveValid())
+                        {
+                            // Move is valid, make it
+                        }
+                    }
+                }
+            }
+        }
+        else if (move_from.length() == 4)
+        {
+            // Pawn capture
+            // e.g., dxe5
+            // Check if regular capture is allowed from left
+            // Check if regular capture is allowed from right
+            // Clarify ambiguity
+            // Check if en passant is allowed from left
+            // Check if en passant is allowed from right
+            // Clarify ambiguity
+
+            // Or piece capture
+            // e.g., Nxc4
+
+            // Or piece move with 1 clarification
+            // e.g., Nac4
+        }
+        else if (move_from.length() == 5)
+        {
+            // Piece capture with 1 clarification
+            // e.g., Naxc4
+
+            // Or piece move with 2 clarifications
+            // e.g., Na3c4
+        }
+        else if (move_from.length() == 6)
+        {
+            // Piece capture with w clarifications
+            // e.g., Na3xc4
+        }
 
         // Check square on board
 
@@ -861,9 +964,11 @@ bool movePieceMain(void)
         // - The piece is consistent with the player's turn
         // ---------------------------------------------------
 
+        cout << char(present.iColumn) << char(present.iRow) << endl;
+
         if (present.iColumn < 'A' || present.iColumn > 'H')
         {
-            createNextMessage("Invalid column.\n");
+            createNextMessage("Invalid past column.\n");
             return success;
         }
 
@@ -894,7 +999,7 @@ bool movePieceMain(void)
         }
         else
         {
-            if (false == Chess::isWhitePiece(chPiece))
+            if (Chess::isWhitePiece(chPiece))
             {
                 createNextMessage("It is BLACK's turn and you picked a WHITE piece\n");
                 return success;
@@ -926,33 +1031,6 @@ bool movePieceMain(void)
         // - It's inside the board (A1-H8)
         // - The move is valid
         // ---------------------------------------------------
-        Chess::Position future;
-        future.iColumn = present.iColumn + 'A';
-        future.iRow = present.iRow + '1' + 2;
-
-        future.iColumn = toupper(future.iColumn);
-
-        if (future.iColumn < 'A' || future.iColumn > 'H')
-        {
-            createNextMessage("Invalid column.\n");
-            return success;
-        }
-
-        if (future.iRow < '0' || future.iRow > '8')
-        {
-            createNextMessage("Invalid row.\n");
-            return success;
-        }
-
-        // Put in the string to be logged
-        to_record += future.iColumn;
-        to_record += future.iRow;
-
-        // Convert columns from ['A'-'H'] to [0x00-0x07]
-        future.iColumn = future.iColumn - 'A';
-
-        // Convert row from ['1'-'8'] to [0x00-0x07]
-        future.iRow = future.iRow - '1';
 
         // Check if it is not the exact same square
         if (future.iRow == present.iRow && future.iColumn == present.iColumn)
@@ -1055,25 +1133,6 @@ bool movePieceMain(void)
         }
 
         return true;
-
-        if (move_from.length() == 2)
-        {
-            // Pawn move
-            if (present.iRow == 4)
-            {
-                // Check if double move is allowed
-            }
-            else
-            {
-                // Check if single move is allowed
-                // Check if regular capture is allowed from left
-                // Check if regular capture is allowed from right
-                // Clarify ambiguity
-                // Check if en passant is allowed from left
-                // Check if en passant is allowed from right
-                // Clarify ambiguity
-            }
-        }
     }
 }
 
