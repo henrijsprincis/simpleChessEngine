@@ -953,14 +953,42 @@ bool movePieceMain(void)
         }
         else if (move_from.length() == 4)
         {
-            // Pawn capture
-            // e.g., dxe5
-            // Check if regular capture is allowed from left
-            // Check if regular capture is allowed from right
-            // Clarify ambiguity
-            // Check if en passant is allowed from left
-            // Check if en passant is allowed from right
-            // Clarify ambiguity
+            if (move_from[0] >= 'a' && move_from[0] <= 'h')
+            {
+                char piece;
+                char pieceAtPosition;
+                bool piece_found = false;
+                // int correct_row;
+                // int correct_col;
+                // Pawn capture
+                // e.g., dxe5
+                piece = 'P';
+                // Check if regular capture is allowed
+                if (move_from[0] - tolower(future.iColumn + 'A') == 1)
+                {
+                    present.iColumn = future.iColumn + 'A' + 1;
+                }
+                else if (move_from[0] - tolower(future.iColumn + 'A') == -1)
+                {
+                    present.iColumn = future.iColumn + 'A' - 1;
+                }
+                present.iRow = future.iRow + '1' - 1;
+                cout << char(present.iColumn) << char(present.iRow) << endl;
+                pieceAtPosition = current_game->getPieceAtPosition(present.iRow, present.iColumn);
+                if (pieceAtPosition == piece && isMoveValid(present, future, &S_enPassant, &S_castling, &S_promotion))
+                {
+                    // Move is valid, make it
+                    cout << "VALID\n";
+                    piece_found = !piece_found;
+                    // correct_col = col;
+                    // correct_row = row;
+                }
+
+                // Clarify ambiguity
+                // Check if en passant is allowed from left
+                // Check if en passant is allowed from right
+                // Clarify ambiguity
+            }
 
             // Or piece capture
             // e.g., Nxc4
