@@ -989,12 +989,59 @@ bool movePieceMain(void)
                 // Check if en passant is allowed from right
                 // Clarify ambiguity
             }
-
-            // Or piece capture
-            // e.g., Nxc4
-
-            // Or piece move with 1 clarification
-            // e.g., Nac4
+            else
+            {
+                // Or piece capture
+                // e.g., Nxc4
+                if (move_from[1] == 'x')
+                {
+                    char piece = move_from[0];
+                    bool piece_found = false;
+                    int correct_row;
+                    int correct_col;
+                    for (int row = 0; row < 8; row++)
+                    {
+                        cout << "Row " << row << endl;
+                        for (int col = 0; col < 8; col++)
+                        {
+                            cout << "Col " << col << endl;
+                            char pieceAtPosition = current_game->getPieceAtPosition(row, col);
+                            cout << pieceAtPosition << endl;
+                            if (Chess::isWhitePiece(pieceAtPosition) == true)
+                            {
+                                if (pieceAtPosition == piece)
+                                {
+                                    cout << "Match found\n";
+                                    // This could be the piece to move
+                                    // Check if that move would be legal
+                                    present.iColumn = col;
+                                    present.iRow = row;
+                                    if (isMoveValid(present, future, &S_enPassant, &S_castling, &S_promotion))
+                                    {
+                                        // Move is valid, make it
+                                        cout << "VALID\n";
+                                        piece_found = !piece_found;
+                                        correct_col = col;
+                                        correct_row = row;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if (piece_found)
+                    {
+                        char correct[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'};
+                        present.iColumn = correct[correct_col];
+                        present.iRow = correct_row + '1';
+                        cout << char(present.iColumn) << char(present.iRow) << endl;
+                    }
+                }
+                else
+                {
+                    // Or piece move with 1 clarification
+                    // e.g., Nac4
+                }
+            }
         }
         else if (move_from.length() == 5)
         {
