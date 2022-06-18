@@ -810,16 +810,22 @@ void undoMove(void)
     createNextMessage("Last move was undone\n");
 }
 
-bool movePieceMain(void)
+bool movePieceMain(std::string input = "")
 {
     bool success = false;
     std::string to_record;
-
-    // Get user input for the piece they want to move
-    cout << "Input move in standard algebraic notation (SAN): ";
-
     std::string move_from;
-    getline(cin, move_from);
+
+    if (input == "")
+    {
+        // Get user input for the piece they want to move
+        cout << "Input move in standard algebraic notation (SAN): ";
+        getline(cin, move_from);
+    }
+    else
+    {
+        move_from = input;
+    }
 
     // if (move_from.length() > 2)
     // {
@@ -1700,127 +1706,133 @@ int main()
 
         if (input.length() != 1)
         {
-            // Check if input is valid algebraic notation
-            if (input.length() == 2)
+            bool move_succesful = movePieceMain(input);
+            clearScreen();
+            printSituation(*current_game);
+            printBoard(*current_game);
+
+            if (false == current_game->isCheckMate() && move_succesful)
             {
-                // Pawn move, e.g. d4
+                total_moves = 0;
+                computer_play_move(current_game->getCurrentTurn());
+                cout << "Computer looked at " << total_moves << " moves" << endl;
             }
-            cout << "Invalid option. Type one letter only\n\n";
-            continue;
         }
-
-        try
+        else
         {
-            switch (input[0])
+            try
             {
-            case 'N':
-            case 'n':
-            {
-                newGame();
-                clearScreen();
-                printLogo();
-                printSituation(*current_game);
-                printBoard(*current_game);
-                cout << "Playing as white vs computer at depth: " << depth << ". TODO add option to play as black" << endl;
-            }
-            break;
-
-            case 'M':
-            case 'm':
-            {
-                if (NULL != current_game)
+                switch (input[0])
                 {
-                    if (current_game->isFinished())
-                    {
-                        cout << "This game has already finished!\n";
-                    }
-                    else
-                    {
-                        bool move_succesful = movePieceMain();
-                        clearScreen();
-                        printSituation(*current_game);
-                        printBoard(*current_game);
-
-                        if (false == current_game->isCheckMate() && move_succesful)
-                        {
-                            total_moves = 0;
-                            computer_play_move(current_game->getCurrentTurn());
-                            cout << "Computer looked at " << total_moves << " moves" << endl;
-                        }
-                    }
-                }
-                else
+                case 'N':
+                case 'n':
                 {
-                    cout << "No game running!\n";
-                }
-            }
-            break;
-
-            case 'Q':
-            case 'q':
-            {
-                bRun = false;
-            }
-            break;
-
-            case 'U':
-            case 'u':
-            {
-                if (NULL != current_game)
-                {
-                    undoMoveComputer();
-                    undoMoveComputer();
-                    // clearScreen();
+                    newGame();
+                    clearScreen();
                     printLogo();
                     printSituation(*current_game);
                     printBoard(*current_game);
+                    cout << "Playing as white vs computer at depth: " << depth << ". TODO add option to play as black" << endl;
                 }
-                else
-                {
-                    cout << "No game running\n";
-                }
-            }
-            break;
+                break;
 
-            case 'S':
-            case 's':
-            {
-                if (NULL != current_game)
+                case 'M':
+                case 'm':
                 {
-                    saveGame();
+                    if (NULL != current_game)
+                    {
+                        if (current_game->isFinished())
+                        {
+                            cout << "This game has already finished!\n";
+                        }
+                        else
+                        {
+                            bool move_succesful = movePieceMain();
+                            clearScreen();
+                            printSituation(*current_game);
+                            printBoard(*current_game);
+
+                            if (false == current_game->isCheckMate() && move_succesful)
+                            {
+                                total_moves = 0;
+                                computer_play_move(current_game->getCurrentTurn());
+                                cout << "Computer looked at " << total_moves << " moves" << endl;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        cout << "No game running!\n";
+                    }
+                }
+                break;
+
+                case 'Q':
+                case 'q':
+                {
+                    bRun = false;
+                }
+                break;
+
+                case 'U':
+                case 'u':
+                {
+                    if (NULL != current_game)
+                    {
+                        undoMoveComputer();
+                        undoMoveComputer();
+                        // clearScreen();
+                        printLogo();
+                        printSituation(*current_game);
+                        printBoard(*current_game);
+                    }
+                    else
+                    {
+                        cout << "No game running\n";
+                    }
+                }
+                break;
+
+                case 'S':
+                case 's':
+                {
+                    if (NULL != current_game)
+                    {
+                        saveGame();
+                        clearScreen();
+                        printLogo();
+                        printSituation(*current_game);
+                        printBoard(*current_game);
+                    }
+                    else
+                    {
+                        cout << "No game running\n";
+                    }
+                }
+                break;
+
+                case 'L':
+                case 'l':
+                {
+                    loadGame();
                     clearScreen();
                     printLogo();
                     printSituation(*current_game);
                     printBoard(*current_game);
                 }
-                else
+                break;
+
+                default:
                 {
-                    cout << "No game running\n";
+                    cout << "Option does not exist\n\n";
+                }
+                break;
                 }
             }
-            break;
-
-            case 'L':
-            case 'l':
+            catch (const char *s)
             {
-                loadGame();
-                clearScreen();
-                printLogo();
-                printSituation(*current_game);
-                printBoard(*current_game);
+                s;
             }
-            break;
-
-            default:
-            {
-                cout << "Option does not exist\n\n";
-            }
-            break;
-            }
-        }
-        catch (const char *s)
-        {
-            s;
         }
     }
 
