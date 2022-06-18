@@ -8,6 +8,7 @@
 
 #include <stdio.h>
 #include <stdarg.h>
+#include "helperClass.h"
 // Save the next message to be displayed (regardind last command)
 string next_message;
 
@@ -68,7 +69,7 @@ std::string letterToSymbolUnix(char letter)
     }
 }
 
-wchar_t* letterToSymbol(char letter)
+const wchar_t* letterToSymbol(char letter)
 {
     switch (letter)
     {
@@ -225,6 +226,107 @@ void printLine(int iLine, int iColor1, int iColor2, Game& game)
    }
 }
 
+void printLineBitboard(int iLine, int iColor1, int iColor2, vector<vector<char>> game_board)
+{
+    //char is piece occupying the current square
+    // Example (for CELL = 6):
+
+    //  [6-char]
+    //  |______| subline 1
+    //  |___Q__| subline 2
+    //  |______| subline 3
+
+    // Define the CELL variable here. 
+    // It represents how many horizontal characters will form one square
+    // The number of vertical characters will be CELL/2
+    // You can change it to alter the size of the board (an odd number will make the squares look rectangular)
+    int CELL = 2;
+
+    // Since the width of the characters BLACK and WHITE is half of the height,
+    // we need to use two characters in a row.
+    // So if we have CELL characters, we must have CELL/2 sublines
+    for (int subLine = 0; subLine < CELL / 2; subLine++)
+    {
+        // A sub-line is consisted of 8 cells, but we can group it
+        // in 4 iPairs of black&white
+        for (int iPair = 0; iPair < 4; iPair++)
+        {
+            if (iColor1 == 'W')
+            {
+                cout << "\033[30;47m";
+            }
+            else
+            {
+                cout << "\033[38;5;232m";
+                cout << "\033[48;5;244m";
+            }
+            // First cell of the pair
+            for (int subColumn = 0; subColumn < CELL; subColumn++)
+            {
+                // The piece should be in the "middle" of the cell
+                // For 3 sub-lines, in sub-line 1
+                // For 6 sub-columns, sub-column 3
+                if (subLine == 0 && subColumn == 1)
+                {
+#if defined _WIN32 || defined _WIN64
+                    HANDLE handle = GetStdHandle(STD_OUTPUT_HANDLE);
+                    DWORD written = 0;
+                    WriteConsoleW(handle, letterToSymbol(game_board[iPair * 2][iLine]), 1, &written, NULL);
+#else
+                    cout << letterToSymbolUnix(game_board[iPair * 2][iLine]));
+#endif
+
+                }
+                else
+                {
+                    cout << char(' ');
+                }
+            }
+
+            if (iColor2 == 'W')
+            {
+                cout << "\033[30;47m";
+            }
+            else
+            {
+                cout << "\033[38;5;232m";
+                cout << "\033[48;5;244m";
+            }
+
+            // Second cell of the pair
+            for (int subColumn = 0; subColumn < CELL; subColumn++)
+            {
+                // The piece should be in the "middle" of the cell
+                // For 3 sub-lines, in sub-line 1
+                // For 6 sub-columns, sub-column 3
+                if (subLine == 0 && subColumn == 1)
+                {
+#if defined _WIN32 || defined _WIN64
+                    HANDLE handle = GetStdHandle(STD_OUTPUT_HANDLE);
+                    DWORD written = 0;
+                    WriteConsoleW(handle, letterToSymbol(game_board[iPair * 2 + 1][iLine]), 1, &written, NULL);
+#else
+                    cout << letterToSymbolUnix(game_board[iPair * 2 + 1][iLine]));
+#endif
+                }
+                else
+                {
+                    cout << char(' ');
+                }
+            }
+            cout << "\033[0m";
+        }
+
+        // Write the number of the line on the right
+        if (0 == subLine)
+        {
+            cout << " " << iLine + 1;
+        }
+        cout << "\n";
+    }
+}
+
+
 void printSituation(Game& game)
 {
    // Last moves - print only if at least one move has been made
@@ -296,4 +398,27 @@ void printBoard(Game& game)
          printLine(iLine, WHITE_SQUARE, BLACK_SQUARE, game);
       }
    }
+}
+
+void printBitBoard(Game& game)
+{
+    
+    vector<vector<char>> board = game.bitboardToChar();
+    cout << " A B C D E F G H\n\n";
+    
+
+    for (int iLine = 7; iLine >= 0; iLine--)
+    {
+        if (iLine % 2 == 0)
+        {
+            // Line starting with BLACK
+            printLineBitboard(iLine, BLACK_SQUARE, WHITE_SQUARE, board);
+        }
+
+        else
+        {
+            // Line starting with WHITE
+            printLineBitboard(iLine, WHITE_SQUARE, BLACK_SQUARE, board);
+        }
+    }
 }

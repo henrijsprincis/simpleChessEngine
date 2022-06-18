@@ -13,5 +13,7 @@ void printLogo( void );
 void printMenu( void );
 void printMessage( void );
 void printLine( int iLine, int iColor1, int iColor2, Game& game );
+void printLineBitboard(int iLine, int iColor1, int iColor2, vector<vector<char>> game_board);
 void printSituation( Game& game );
 void printBoard(Game& game);
+void printBitBoard(Game& game);

@@ -6,6 +6,32 @@
 #include "debug.h"
 #include <chrono>
 #include <thread>
+#include <intrin.h>
+#include <unordered_map>
+#include <bitset>
+
+//THE MOST IMPORTANT HASH FUNCTION
+template <>
+struct hash<Game::chess_bitboard>
+{
+    std::size_t operator()(const Game::chess_bitboard& k) const
+    {
+        //this is not a good hashing algorithm but i dont get paid enough.
+        unsigned long long n1 =  699263060593979792ULL;
+        unsigned long long n2 =  10280863893657182221ULL;
+        unsigned long long n3 =  9444613825643976278ULL;
+        unsigned long long n4 =  4960753395245673650ULL;
+        unsigned long long n5 =  3348032945078161581ULL;
+        unsigned long long n6 =  13452118088618146400ULL;
+        unsigned long long n7 =  9385381920577412259ULL;
+        unsigned long long n8 =  14555483919324308287ULL;
+        unsigned long long n9 =  12268618654937289798ULL;
+        unsigned long long n10 = 5212878716342025485ULL;
+        unsigned long long n11 = 3219443095174292432ULL;
+        unsigned long long n12 = 4006770111060996520ULL;
+        return (k.white_pawns + n1) ^ (k.black_pawns + n2) ^ (k.white_knights + n3) ^ (k.black_knights + n4) ^ (k.white_bishops + n5) ^ (k.black_bishops + n6) ^ (k.white_rooks + n7) ^ (k.black_rooks + n8) ^ (k.white_queens + n9) ^ (k.black_queens + n10) ^ (k.white_kings + n11) ^ (k.black_kings + n12) ^ (k.white_castle_king + k.black_castle_king + k.white_castle_queen + k.black_castle_queen);
+    }
+};
 
 //---------------------------------------------------------------------------------------
 // Global variable
@@ -14,1047 +40,299 @@ Game* current_game = NULL;
 char chess_cols[9] = "ABCDEFGH";
 char chess_rows[9] = "12345678";
 int total_moves = 0;
-int depth = 5;
+std::unordered_map<Game::chess_bitboard, int> hash_table;
 
+int depth = 5;
+int current_minimax = 0;
 //---------------------------------------------------------------------------------------
 // Helper
 // Auxiliar functions to determine if a move is valid, etc
 //---------------------------------------------------------------------------------------
-bool isMoveValid(Chess::Position present, Chess::Position future, Chess::EnPassant* S_enPassant, Chess::Castling* S_castling, Chess::Promotion* S_promotion)
-{
-   bool bValid = false;
 
-   char chPiece = current_game->getPieceAtPosition(present.iRow, present.iColumn);
 
-   // ----------------------------------------------------
-   // 1. Is the piece  allowed to move in that direction?
-   // ----------------------------------------------------
-   
-   switch( toupper(chPiece) )
-   {
-      case 'P':
-      {
-          cout << "PAWN" << endl;
-         // Wants to move forward
-          if (future.iColumn == present.iColumn)
-          {
-              // Simple move forward
-              cout << "move forwad";
-              if ((Chess::isWhitePiece(chPiece) && future.iRow == present.iRow + 1) ||
-                  (Chess::isBlackPiece(chPiece) && future.iRow == present.iRow - 1))
-              {
-                  if (EMPTY_SQUARE == current_game->getPieceAtPosition(future.iRow, future.iColumn))
-                  {
-                      bValid = true;
-                  }
-              }
-
-              // Double move forward
-              else if ((Chess::isWhitePiece(chPiece) && future.iRow == present.iRow + 2) ||
-                  (Chess::isBlackPiece(chPiece) && future.iRow == present.iRow - 2))
-              {
-                  // This is only allowed if the pawn is in its original place
-                  if (Chess::isWhitePiece(chPiece))
-                  {
-                      if (EMPTY_SQUARE == current_game->getPieceAtPosition(future.iRow - 1, future.iColumn) &&
-                          EMPTY_SQUARE == current_game->getPieceAtPosition(future.iRow, future.iColumn) &&
-                          1 == present.iRow)
-                      {
-                          bValid = true;
-                      }
-                  }
-                  else // if ( isBlackPiece(chPiece) )
-                  {
-                      if (EMPTY_SQUARE == current_game->getPieceAtPosition(future.iRow + 1, future.iColumn) &&
-                          EMPTY_SQUARE == current_game->getPieceAtPosition(future.iRow, future.iColumn) &&
-                          6 == present.iRow)
-                      {
-                          bValid = true;
-                      }
-                  }
-              }
-              else
-              {
-                  // This is invalid
-                  cout << "RETURNED EARLY";
-                  return false;
-              }
-          }
-
-          // The "en passant" move
-          else if (((Chess::isWhitePiece(chPiece) && 4 == present.iRow && 5 == future.iRow && 1 == abs(future.iColumn - present.iColumn)) ||
-              (Chess::isBlackPiece(chPiece) && 3 == present.iRow && 2 == future.iRow && 1 == abs(future.iColumn - present.iColumn))) &&
-              toupper(current_game->getPieceAtPosition(present.iRow, future.iColumn)) == 'P')//future i row there is a pawn
-         {
-             cout << "en passant";
-            // It is only valid if last move of the opponent was a double move forward by a pawn on a adjacent column
-            string last_move = current_game->getLastMove();
-
-            // Parse the line
-            Chess::Position LastMoveFrom;
-            Chess::Position LastMoveTo;
-            current_game->parseMove(last_move, &LastMoveFrom, &LastMoveTo);
-
-            // First of all, was it a pawn?
-            char chLstMvPiece = current_game->getPieceAtPosition(LastMoveTo.iRow, LastMoveTo.iColumn);
-
-            if (toupper(chLstMvPiece) != 'P')
-            {
-                cout << "FAILED EN PESANT!";
-               return false;
-            }
-
-            // Did the pawn have a double move forward and was it an adjacent column?
-            if ( 2 == abs(LastMoveTo.iRow - LastMoveFrom.iRow) && 1 == abs(LastMoveFrom.iColumn - present.iColumn) )
-            {
-               bValid = true;
-               S_enPassant->bApplied = true;
-               S_enPassant->PawnCaptured.iRow    = LastMoveTo.iRow;
-               S_enPassant->PawnCaptured.iColumn = LastMoveTo.iColumn;
-            }
-         }
-
-         // Wants to capture a piece
-         else if (1 == abs(future.iColumn - present.iColumn))
-         {
-             cout << "abs col diff" << endl;
-            if ( (Chess::isWhitePiece(chPiece) && future.iRow == present.iRow + 1) || (Chess::isBlackPiece(chPiece) && future.iRow == present.iRow - 1))
-            {
-                cout << "abs row diff" << endl;
-               // Only allowed if there is something to be captured in the square
-               if (EMPTY_SQUARE != current_game->getPieceAtPosition(future.iRow, future.iColumn))
-               {
-                  cout << "future square not empty" << endl;
-                  bValid = true;
-                  cout << "Pawn captured a piece!\n";
-               }
-            }
-         }
-
-         else
-         {
-            // This is invalid
-            return false;
-         }
-
-         // If a pawn reaches its eight rank, it must be promoted to another piece
-         if ( (Chess::isWhitePiece( chPiece ) && 7 == future.iRow) ||
-              (Chess::isBlackPiece( chPiece ) && 0 == future.iRow) )
-         {
-            cout << "Pawn must be promoted!\n";
-            S_promotion->bApplied = true;
-         }
-      }
-      break;
-
-      case 'R':
-      {
-         // Horizontal move
-         if ( (future.iRow == present.iRow) && (future.iColumn != present.iColumn) )
-         {
-            // Check if there are no pieces on the way
-            if ( current_game->isPathFree(present, future, Chess::HORIZONTAL) )
-            {
-               bValid = true;
-            }
-         }
-         // Vertical move
-         else if ( (future.iRow != present.iRow) && (future.iColumn == present.iColumn) )
-         {
-            // Check if there are no pieces on the way
-            if ( current_game->isPathFree(present, future, Chess::VERTICAL) )
-            {
-               bValid = true;
-            }
-         }
-      }
-      break;
-
-      case 'N':
-      {
-         if ( (2 == abs(future.iRow - present.iRow)) && (1 == abs(future.iColumn - present.iColumn)) )
-         {
-            bValid = true;
-         }
-
-         else if (( 1 == abs(future.iRow - present.iRow)) && (2 == abs(future.iColumn - present.iColumn)) )
-         {
-            bValid = true;
-         }
-      }
-      break;
-
-      case 'B':
-      {
-         // Diagonal move
-         if ( abs(future.iRow - present.iRow) == abs(future.iColumn - present.iColumn) )
-         {
-            // Check if there are no pieces on the way
-            if ( current_game->isPathFree(present, future, Chess::DIAGONAL) )
-            {
-               bValid = true;
-            }
-         }
-      }
-      break;
-
-      case 'Q':
-      {
-         // Horizontal move
-         if ( (future.iRow == present.iRow) && (future.iColumn != present.iColumn) )
-         {
-            // Check if there are no pieces on the way
-            if ( current_game->isPathFree(present, future, Chess::HORIZONTAL))
-            {
-               bValid = true;
-            }
-         }
-         // Vertical move
-         else if ( (future.iRow != present.iRow) && (future.iColumn == present.iColumn) )
-         {
-            // Check if there are no pieces on the way
-            if ( current_game->isPathFree(present, future, Chess::VERTICAL))
-            {
-               bValid = true;
-            }
-         }
-
-         // Diagonal move
-         else if ( abs(future.iRow - present.iRow) == abs(future.iColumn - present.iColumn) )
-         {
-            // Check if there are no pieces on the way
-            if ( current_game->isPathFree(present, future, Chess::DIAGONAL))
-            {
-               bValid = true;
-            }
-         }
-      }
-      break;
-
-      case 'K':
-      {
-         // Horizontal move by 1
-         if ( (future.iRow == present.iRow) && (1 == abs(future.iColumn - present.iColumn) ) )
-         {
-            bValid = true;
-         }
-
-         // Vertical move by 1
-         else if ( (future.iColumn == present.iColumn) && (1 == abs(future.iRow - present.iRow) ) )
-         {
-            bValid = true;
-         }
-
-         // Diagonal move by 1
-         else if ( (1 == abs(future.iRow - present.iRow) ) && (1 == abs(future.iColumn - present.iColumn) ) )
-         {
-            bValid = true;
-         }
-
-         // Castling
-         else if ( (future.iRow == present.iRow) && (2 == abs(future.iColumn - present.iColumn) ) )
-         {
-            // Castling is only allowed in these circunstances:
-
-            // 1. King is not in check
-            if ( true == current_game->playerKingInCheck() )
-            {
-               return false;
-            }
-
-            // 2. No pieces in between the king and the rook
-            if ( false == current_game->isPathFree( present, future, Chess::HORIZONTAL ) )
-            {
-               return false;
-            }
-
-            // 3. King and rook must not have moved yet;
-            // 4. King must not pass through a square that is attacked by an enemy piece
-            if ( future.iColumn > present.iColumn )
-            {
-               // if future.iColumn is greather, it means king side
-               if ( false == current_game->castlingAllowed(Chess::Side::KING_SIDE, Chess::getPieceColor(chPiece) ) )
-               {
-                  createNextMessage("Castling to the king side is not allowed.\n");
-                  return false;
-               }
-               else
-               {
-                  // Check if the square that the king skips is not under attack
-                  Chess::UnderAttack square_skipped = current_game->isUnderAttack( present.iRow, present.iColumn + 1, current_game->getCurrentTurn() );
-                  if ( false == square_skipped.bUnderAttack )
-                  {
-                     // Fill the S_castling structure
-                     S_castling->bApplied = true;
-
-                     // Present position of the rook
-                     S_castling->rook_before.iRow    = present.iRow;
-                     S_castling->rook_before.iColumn = present.iColumn + 3;
-
-                     // Future position of the rook
-                     S_castling->rook_after.iRow    = future.iRow;
-                     S_castling->rook_after.iColumn = present.iColumn + 1; // future.iColumn -1
-
-                     bValid = true;
-                  }
-               }
-            }
-            else //if (future.iColumn < present.iColumn)
-            {
-               // if present.iColumn is greather, it means queen side
-               if (false == current_game->castlingAllowed(Chess::Side::QUEEN_SIDE, Chess::getPieceColor(chPiece)))
-               {
-                  createNextMessage("Castling to the queen side is not allowed.\n");
-                  return false;
-               }
-               else
-               {
-                  // Check if the square that the king skips is not attacked
-                  Chess::UnderAttack square_skipped = current_game->isUnderAttack( present.iRow, present.iColumn - 1, current_game->getCurrentTurn() );
-                  if ( false == square_skipped.bUnderAttack )
-                  {
-                     // Fill the S_castling structure
-                     S_castling->bApplied = true;
-
-                     // Present position of the rook
-                     S_castling->rook_before.iRow    = present.iRow;
-                     S_castling->rook_before.iColumn = present.iColumn - 4;
-
-                     // Future position of the rook
-                     S_castling->rook_after.iRow    = future.iRow;
-                     S_castling->rook_after.iColumn = present.iColumn - 1; // future.iColumn +1
-
-                     bValid = true;
-                  }
-               }
-            }
-         }
-      }
-      break;
-
-      default:
-      {
-         cout << "!!!!Should not reach here. Invalid piece: " << char(chPiece) << "\n\n\n";
-      }
-      break;
-   }
-
-   // If it is a move in an invalid direction, do not even bother to check the rest
-   if ( false == bValid )
-   {
-      cout << "Piece is not allowed to move to that square\n";
-      return false;
-   }
-
-
-   // -------------------------------------------------------------------------
-   // 2. Is there another piece of the same color on the destination square?
-   // -------------------------------------------------------------------------
-   if (current_game->isSquareOccupied(future.iRow, future.iColumn))
-   {
-      char chAuxPiece = current_game->getPieceAtPosition(future.iRow, future.iColumn);
-      if ( Chess::getPieceColor(chPiece) == Chess::getPieceColor(chAuxPiece) )
-      {
-         cout << "Position is already taken by a piece of the same color\n";
-         return false;
-      }
-   }
-
-   // ----------------------------------------------
-   // 3. Would the king be in check after the move?
-   // ----------------------------------------------
-   if ( true == current_game->wouldKingBeInCheck(chPiece, present, future, S_enPassant) )
-   {
-      cout << "Move would put player's king in check\n";
-      return false;
-   }
-
-   return bValid;
-}
-
-bool isMoveValidComputer(Chess::Position present, Chess::Position future, Chess::EnPassant* S_enPassant, Chess::Castling* S_castling, Chess::Promotion* S_promotion)
-{
-    
-    bool bValid = false;
-
-    char chPiece = current_game->getPieceAtPosition(present.iRow, present.iColumn);
-
-    // ----------------------------------------------------
-    // 1. Is the piece  allowed to move in that direction?
-    // ----------------------------------------------------
-    switch (toupper(chPiece))
-    {
-    case 'P':
-    {
-        
-        // Wants to move forward
-        if (future.iColumn == present.iColumn)
-        {
-            // Simple move forward
-            if ((Chess::isWhitePiece(chPiece) && future.iRow == present.iRow + 1) ||
-                (Chess::isBlackPiece(chPiece) && future.iRow == present.iRow - 1))
-            {
-                if (EMPTY_SQUARE == current_game->getPieceAtPosition(future.iRow, future.iColumn))
-                {
-                    bValid = true;
-                }
-            }
-
-            // Double move forward
-            else if ((Chess::isWhitePiece(chPiece) && future.iRow == present.iRow + 2) ||
-                (Chess::isBlackPiece(chPiece) && future.iRow == present.iRow - 2))
-            {
-                // This is only allowed if the pawn is in its original place
-                if (Chess::isWhitePiece(chPiece))
-                {
-                    if (EMPTY_SQUARE == current_game->getPieceAtPosition(future.iRow - 1, future.iColumn) &&
-                        EMPTY_SQUARE == current_game->getPieceAtPosition(future.iRow, future.iColumn) &&
-                        1 == present.iRow)
-                    {
-                        bValid = true;
-                    }
-                }
-                else // if ( isBlackPiece(chPiece) )
-                {
-                    if (EMPTY_SQUARE == current_game->getPieceAtPosition(future.iRow + 1, future.iColumn) &&
-                        EMPTY_SQUARE == current_game->getPieceAtPosition(future.iRow, future.iColumn) &&
-                        6 == present.iRow)
-                    {
-                        bValid = true;
-                    }
-                }
-            }
-            else
-            {
-                // This is invalid
-                return false;
-            }
-        }
-
-        // The "en passant" move
-        else if (((Chess::isWhitePiece(chPiece) && 4 == present.iRow && 5 == future.iRow && 1 == abs(future.iColumn - present.iColumn)) ||
-            (Chess::isBlackPiece(chPiece) && 3 == present.iRow && 2 == future.iRow && 1 == abs(future.iColumn - present.iColumn))) &&
-            toupper(current_game->getPieceAtPosition(present.iRow, future.iColumn)) == 'P')
-        {
-            
-            // It is only valid if last move of the opponent was a double move forward by a pawn on a adjacent column
-            string last_move = current_game->getLastMove();
-
-            // Parse the line
-            Chess::Position LastMoveFrom;
-            Chess::Position LastMoveTo;
-            current_game->parseMove(last_move, &LastMoveFrom, &LastMoveTo);
-
-            // First of all, was it a pawn?
-            char chLstMvPiece = current_game->getPieceAtPosition(LastMoveTo.iRow, LastMoveTo.iColumn);
-
-            if (toupper(chLstMvPiece) != 'P')
-            {
-                return false;
-            }
-
-            // Did the pawn have a double move forward and was it an adjacent column?
-            if (2 == abs(LastMoveTo.iRow - LastMoveFrom.iRow) && 1 == abs(LastMoveFrom.iColumn - present.iColumn))
-            {
-                bValid = true;
-                S_enPassant->bApplied = true;
-                S_enPassant->PawnCaptured.iRow = LastMoveTo.iRow;
-                S_enPassant->PawnCaptured.iColumn = LastMoveTo.iColumn;
-            }
-        }
-
-        // Wants to capture a piece
-        else if (1 == abs(future.iColumn - present.iColumn))
-        {
-            if ((Chess::isWhitePiece(chPiece) && future.iRow == present.iRow + 1) || (Chess::isBlackPiece(chPiece) && future.iRow == present.iRow - 1))
-            {
-                // Only allowed if there is something to be captured in the square
-                if (EMPTY_SQUARE != current_game->getPieceAtPosition(future.iRow, future.iColumn))
-                {
-                    bValid = true;
-                    //cout << "Pawn captured a piece!\n";
-                }
-            }
-        }
-        else
-        {
-            // This is invalid
-            return false;
-        }
-
-        // If a pawn reaches its eight rank, it must be promoted to another piece
-        if ((Chess::isWhitePiece(chPiece) && 7 == future.iRow) ||
-            (Chess::isBlackPiece(chPiece) && 0 == future.iRow))
-        {
-            //cout << "Pawn must be promoted!\n";
-            S_promotion->bApplied = true;
-        }
-    }
-    break;
-
-    case 'R':
-    {
-        // Horizontal move
-        if ((future.iRow == present.iRow) && (future.iColumn != present.iColumn))
-        {
-            // Check if there are no pieces on the way
-            if (current_game->isPathFreeComputer(present, future, Chess::HORIZONTAL))
-            {
-                bValid = true;
-            }
-        }
-        // Vertical move
-        else if ((future.iRow != present.iRow) && (future.iColumn == present.iColumn))
-        {
-            // Check if there are no pieces on the way
-            if (current_game->isPathFreeComputer(present, future, Chess::VERTICAL))
-            {
-                bValid = true;
-            }
-        }
-    }
-    break;
-
-    case 'N':
-    {
-        if ((2 == abs(future.iRow - present.iRow)) && (1 == abs(future.iColumn - present.iColumn)))
-        {
-            bValid = true;
-        }
-
-        else if ((1 == abs(future.iRow - present.iRow)) && (2 == abs(future.iColumn - present.iColumn)))
-        {
-            bValid = true;
-        }
-    }
-    break;
-
-    case 'B':
-    {
-        // Diagonal move
-        if (abs(future.iRow - present.iRow) == abs(future.iColumn - present.iColumn))
-        {
-            // Check if there are no pieces on the way
-            if (current_game->isPathFreeComputer(present, future, Chess::DIAGONAL))
-            {
-                bValid = true;
-            }
-        }
-    }
-    break;
-
-    case 'Q':
-    {
-        // Horizontal move
-        if ((future.iRow == present.iRow) && (future.iColumn != present.iColumn))
-        {
-            // Check if there are no pieces on the way
-            if (current_game->isPathFreeComputer(present, future, Chess::HORIZONTAL))
-            {
-                bValid = true;
-            }
-        }
-        // Vertical move
-        else if ((future.iRow != present.iRow) && (future.iColumn == present.iColumn))
-        {
-            // Check if there are no pieces on the way
-            if (current_game->isPathFreeComputer(present, future, Chess::VERTICAL))
-            {
-                bValid = true;
-            }
-        }
-
-        // Diagonal move
-        else if (abs(future.iRow - present.iRow) == abs(future.iColumn - present.iColumn))
-        {
-            // Check if there are no pieces on the way
-            if (current_game->isPathFreeComputer(present, future, Chess::DIAGONAL))
-            {
-                bValid = true;
-            }
-        }
-    }
-    break;
-
-    case 'K':
-    {
-        // Horizontal move by 1
-        if ((future.iRow == present.iRow) && (1 == abs(future.iColumn - present.iColumn)))
-        {
-            bValid = true;
-        }
-
-        // Vertical move by 1
-        else if ((future.iColumn == present.iColumn) && (1 == abs(future.iRow - present.iRow)))
-        {
-            bValid = true;
-        }
-
-        // Diagonal move by 1
-        else if ((1 == abs(future.iRow - present.iRow)) && (1 == abs(future.iColumn - present.iColumn)))
-        {
-            bValid = true;
-        }
-
-        // Castling
-        else if ((future.iRow == present.iRow) && (2 == abs(future.iColumn - present.iColumn)))
-        {
-            // Castling is only allowed in these circunstances:
-
-            // 1. King is not in check
-            if (true == current_game->playerKingInCheck())
-            {
-                return false;
-            }
-
-            // 2. No pieces in between the king and the rook
-            if (false == current_game->isPathFreeComputer(present, future, Chess::HORIZONTAL))
-            {
-                return false;
-            }
-
-            // 3. King and rook must not have moved yet;
-            // 4. King must not pass through a square that is attacked by an enemy piece
-            if (future.iColumn > present.iColumn)
-            {
-                // if future.iColumn is greather, it means king side
-                if (false == current_game->castlingAllowed(Chess::Side::KING_SIDE, Chess::getPieceColor(chPiece)))
-                {
-                    createNextMessage("Castling to the king side is not allowed.\n");
-                    return false;
-                }
-                else
-                {
-                    // Check if the square that the king skips is not under attack
-                    Chess::UnderAttack square_skipped = current_game->isUnderAttack(present.iRow, present.iColumn + 1, current_game->getCurrentTurn());
-                    if (false == square_skipped.bUnderAttack)
-                    {
-                        // Fill the S_castling structure
-                        S_castling->bApplied = true;
-
-                        // Present position of the rook
-                        S_castling->rook_before.iRow = present.iRow;
-                        S_castling->rook_before.iColumn = present.iColumn + 3;
-
-                        // Future position of the rook
-                        S_castling->rook_after.iRow = future.iRow;
-                        S_castling->rook_after.iColumn = present.iColumn + 1; // future.iColumn -1
-
-                        bValid = true;
-                    }
-                }
-            }
-            else //if (future.iColumn < present.iColumn)
-            {
-                // if present.iColumn is greather, it means queen side
-                if (false == current_game->castlingAllowed(Chess::Side::QUEEN_SIDE, Chess::getPieceColor(chPiece)))
-                {
-                    createNextMessage("Castling to the queen side is not allowed.\n");
-                    return false;
-                }
-                else
-                {
-                    // Check if the square that the king skips is not attacked
-                    Chess::UnderAttack square_skipped = current_game->isUnderAttack(present.iRow, present.iColumn - 1, current_game->getCurrentTurn());
-                    if (false == square_skipped.bUnderAttack)
-                    {
-                        // Fill the S_castling structure
-                        S_castling->bApplied = true;
-
-                        // Present position of the rook
-                        S_castling->rook_before.iRow = present.iRow;
-                        S_castling->rook_before.iColumn = present.iColumn - 4;
-
-                        // Future position of the rook
-                        S_castling->rook_after.iRow = future.iRow;
-                        S_castling->rook_after.iColumn = present.iColumn - 1; // future.iColumn +1
-
-                        bValid = true;
-                    }
-                }
-            }
-        }
-    }
-    break;
-
-    default:
-    {
-        //cout << "!!!!Should not reach here. Invalid piece: " << char(chPiece) << "\n\n\n";
-    }
-    break;
-    }
-
-    // If it is a move in an invalid direction, do not even bother to check the rest
-    if (false == bValid)
-    {
-        //cout << "Piece is not allowed to move to that square\n";
-        return false;
-    }
-
-
-    // -------------------------------------------------------------------------
-    // 2. Is there another piece of the same color on the destination square?
-    // -------------------------------------------------------------------------
-    if (current_game->isSquareOccupied(future.iRow, future.iColumn))
-    {
-        char chAuxPiece = current_game->getPieceAtPosition(future.iRow, future.iColumn);
-        if (Chess::getPieceColor(chPiece) == Chess::getPieceColor(chAuxPiece))
-        {
-            //cout << "Position is already taken by a piece of the same color\n";
-            return false;
-        }
-    }
-
-    // ----------------------------------------------
-    // 3. Would the king be in check after the move?
-    // ----------------------------------------------
-    if (true == current_game->wouldKingBeInCheck(chPiece, present, future, S_enPassant))
-    {
-        //cout << "Move would put player's king in check\n";
-        return false;
-    }
-
-    return bValid;
-}
-
-
-
-void makeTheMove(Chess::Position present, Chess::Position future, Chess::EnPassant* S_enPassant, Chess::Castling* S_castling, Chess::Promotion* S_promotion)
-{
-   char chPiece = current_game->getPieceAtPosition(present.iRow, present.iColumn);
-
-   // -----------------------
-   // Captured a piece?
-   // -----------------------
-   if ( current_game->isSquareOccupied(future.iRow, future.iColumn) )
-   {
-      char chAuxPiece = current_game->getPieceAtPosition(future.iRow, future.iColumn);
-
-      if ( Chess::getPieceColor(chPiece) != Chess::getPieceColor(chAuxPiece))
-      {
-         createNextMessage(Chess::describePiece(chAuxPiece) + " captured!\n");
-      }
-      else
-      {
-         cout << "Error. We should not be making this move\n";
-         throw("Error. We should not be making this move");
-      }
-   }
-   else if (true == S_enPassant->bApplied)
-   {
-      createNextMessage("Pawn captured by \"en passant\" move!\n");
-   }
-
-   if ( (true == S_castling->bApplied) )
-   {
-      createNextMessage("Castling applied!\n");
-   }
-
-   current_game->movePiece(present, future, S_enPassant, S_castling, S_promotion);
-}
-
-void makeTheMoveComputer(Chess::Position present, Chess::Position future, Chess::EnPassant* S_enPassant, Chess::Castling* S_castling, Chess::Promotion* S_promotion)
-{
-    char chPiece = current_game->getPieceAtPosition(present.iRow, present.iColumn);
-    // -----------------------
-    // Captured a piece?
-    // -----------------------
-    current_game->was_captured = false;
-    if (current_game->isSquareOccupied(future.iRow, future.iColumn))
-    {
-        char chAuxPiece = current_game->getPieceAtPosition(future.iRow, future.iColumn);
-
-        if (Chess::getPieceColor(chPiece) != Chess::getPieceColor(chAuxPiece))
-        {
-            current_game->was_captured = true;
-            //createNextMessage(Chess::describePiece(chAuxPiece) + " captured!\n");
-        }
-        else
-        {
-            cout << "Error. We should not be making this move\n";
-            throw("Error. We should not be making this move");
-        }
-    }
-    else if (true == S_enPassant->bApplied)
-    {
-        //createNextMessage("Pawn captured by \"en passant\" move!\n");
-    }
-
-    if ((true == S_castling->bApplied))
-    {
-        //createNextMessage("Castling applied!\n");
-    }
-    current_game->movePiece(present, future, S_enPassant, S_castling, S_promotion);
-}
-
-
-//---------------------------------------------------------------------------------------
-// Commands
-// Functions to handle the commands of the program
-// New game, Move, Undo, Save game, Load game, etc
-//---------------------------------------------------------------------------------------
 void newGame(void)
 {
-   if (NULL != current_game)
-   {
-      delete current_game;
-   }
+    if (NULL != current_game)
+    {
+        delete current_game;
+    }
 
-   current_game = new Game();
+    current_game = new Game();
 }
 
-void undoMove(void)
-{
-   if ( false == current_game->undoIsPossible() )
-   {
-      createNextMessage("Undo is not possible now!\n");
-      return;
-   }
-
-   current_game->undoLastMove();
-   createNextMessage("Last move was undone\n");
+void undoMove() {
+    current_game->current_move--;
+    current_game->bit_board = current_game->position_array[current_game->current_move];
 }
+void update_current_board(Game::chess_bitboard future_board) {
+    //sets current board to future board and saves the board in the array. also increments player's turn
+    current_game->bit_board = future_board;
+    current_game->current_move++;
+    current_game->position_array[current_game->current_move] = current_game->bit_board;
+}
+
+int minimaxAB(int depth, int alpha, int beta, int white) {
+    if (current_game->isCheckMate()) {
+        //cout << "GOT MATE!" << endl;
+        if (current_game->getCurrentTurn() == 1) {
+            //white to play, but white is in checkmate. so white has lost
+            return -1000;
+        }
+        else {
+            return 1000; // otherwise white has won!
+        }
+
+    }
+    if (depth == 0) {
+        //return heuristic evaluation function
+        return helperClass::getValueBitboard(current_game->bit_board);
+    }
+    //move stuff
+    int number_elemts = 0;
+    int best_move_value = 1000;
+    if (white) {
+        best_move_value = -1000;
+    }
+    
+    Game::chess_bitboard output_array[48];
+    for (int c = 0; c < 7; c++) {
+        switch (c) {
+        case 0://pawn
+            number_elemts = helperClass::get_all_pawn_moves(current_game->bit_board, white, output_array);
+            break;
+        case 1:
+            number_elemts = helperClass::get_all_knight_moves(current_game->bit_board, white, output_array);
+            break;
+        case 2:
+            number_elemts = helperClass::get_all_bishop_moves(current_game->bit_board, white, output_array);
+            break;
+        case 3:
+            number_elemts = helperClass::get_all_rook_moves(current_game->bit_board, white, output_array);
+            break;
+        case 4:
+            number_elemts = helperClass::get_all_queen_moves(current_game->bit_board, white, output_array);
+            break;
+        case 5:
+            number_elemts = helperClass::get_all_king_moves(current_game->bit_board, white, output_array);
+            break;
+        case 6:
+            number_elemts = helperClass::get_all_castle_moves(current_game->bit_board, white, output_array);
+            break;
+        }
+
+        for (int i = 0; i < number_elemts; i++) {
+            update_current_board(output_array[i]);
+            total_moves++;
+            if (white) {
+                best_move_value = std::max(best_move_value, minimaxAB(depth - 1, alpha, beta, 0));
+                if (best_move_value >= beta) {
+                    undoMove();
+                    return best_move_value;
+                }
+                alpha = std::max(alpha, best_move_value);
+            }
+            else {
+                best_move_value = std::min(best_move_value, minimaxAB(depth - 1, alpha, beta, 1));
+                if (best_move_value <= alpha) {
+                    undoMove();
+                    return best_move_value;
+                }
+                beta = std::min(beta, best_move_value);
+            }
+            undoMove();
+            }
+        }
+    
+    return best_move_value;
+}
+
+void computerPlayMove(int depth, int alpha, int beta, int white) {
+    if (current_game->isCheckMate()) {
+        if (current_game->getCurrentTurn() == 1) {
+            //white to play, but white is in checkmate. so white has lost
+            cout << "WHITE WON!" << endl;
+            return;
+        }
+        else {
+            cout << "BLACK WON!" << endl;
+            return;
+        }
+    }
+    //move stuff
+    int number_elemts = 0;
+    int best_move_value = 1000;
+    if (white) {
+        best_move_value = -1000;
+    }
+    Game::chess_bitboard best_move;
+    bool best_move_found = false;
+
+    Game::chess_bitboard output_array[48];
+    for (int c = 0; c < 7; c++) {
+        switch (c) {
+        case 0://pawn
+            number_elemts = helperClass::get_all_pawn_moves(current_game->bit_board, white, output_array);
+            break;
+        case 1:
+            number_elemts = helperClass::get_all_knight_moves(current_game->bit_board, white, output_array);
+            break;
+        case 2:
+            number_elemts = helperClass::get_all_bishop_moves(current_game->bit_board, white, output_array);
+            break;
+        case 3:
+            number_elemts = helperClass::get_all_rook_moves(current_game->bit_board, white, output_array);
+            break;
+        case 4:
+            number_elemts = helperClass::get_all_queen_moves(current_game->bit_board, white, output_array);
+            break;
+        case 5:
+            number_elemts = helperClass::get_all_king_moves(current_game->bit_board, white, output_array);
+            break;
+        case 6:
+            number_elemts = helperClass::get_all_castle_moves(current_game->bit_board, white, output_array);
+            break;
+        }
+
+        for (int i = 0; i < number_elemts; i++) {
+            update_current_board(output_array[i]);
+            //debug
+            /*
+            if (c != 0) {
+            cout << "Number of moves: " << number_elemts << endl;
+            current_game->vector_board = current_game->bitboardToChar();
+            printBitBoard(*current_game);
+            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+            clearScreen();
+            }
+            */
+            total_moves++;
+            if (white) {
+                
+                int board_value = minimaxAB(depth - 1, alpha, beta, 0);
+                if (board_value > best_move_value) {
+                    best_move = output_array[i];
+                }
+                best_move_value = std::max(best_move_value, board_value);
+                if (best_move_value >= beta) {
+                    best_move = output_array[i];
+                    undoMove();
+                    break;
+                }
+                alpha = std::max(alpha, best_move_value);
+            }
+            else {
+                int board_value = minimaxAB(depth - 1, alpha, beta, 1);
+                if (board_value < best_move_value) {
+                    best_move = output_array[i];
+                }
+                best_move_value = std::min(best_move_value, board_value);
+                if (best_move_value <= alpha) {
+                    best_move = output_array[i];
+                    undoMove();
+                    break;
+                }
+                beta = std::min(beta, best_move_value);
+            }
+            undoMove();
+        }
+
+
+
+    }
+    current_minimax = best_move_value;
+    //best_move = output_array[0];
+    update_current_board(best_move);
+}
+
+
+
 
 bool movePieceMain(void)
 {
-   bool success = false;
-   std::string to_record;
-
-   // Get user input for the piece they want to move
-   cout << "Choose piece to be moved. (example: A1 or b2): ";
-
-   std::string move_from;
-   getline(cin, move_from);
-
-   if ( move_from.length() > 2 )
-   {
-      createNextMessage("You should type only two characters (column and row)\n");
-      return success;
-   }
-
-   Chess::Position present;
-   present.iColumn = move_from[0];
-   present.iRow    = move_from[1];
-
-   // ---------------------------------------------------
-   // Did the user pick a valid piece?
-   // Must check if:
-   // - It's inside the board (A1-H8)
-   // - There is a piece in the square
-   // - The piece is consistent with the player's turn
-   // ---------------------------------------------------
-   present.iColumn = toupper(present.iColumn);
-
-   if ( present.iColumn < 'A' || present.iColumn > 'H' )
-   {
-      createNextMessage("Invalid column.\n");
-      return success;
-   }
-
-   if ( present.iRow < '0' || present.iRow > '8' )
-   {
-      createNextMessage("Invalid row.\n");
-      return success;
-   }
-
-   // Put in the string to be logged
-   to_record += present.iColumn;
-   to_record += present.iRow;
-   to_record += "-";
-
-   // Convert column from ['A'-'H'] to [0x00-0x07]
-   present.iColumn = present.iColumn - 'A';
-
-   // Convert row from ['1'-'8'] to [0x00-0x07]
-   present.iRow  = present.iRow  - '1';
-
-   char chPiece = current_game->getPieceAtPosition(present.iRow, present.iColumn);
-   //current_game->printOutBoard();
-
-   cout << "Piece is " << char(chPiece) << "\n";
-
-   if ( 0x20 == chPiece )
-   {
-      createNextMessage("You picked an EMPTY square.\n");
-      return success;
-   }
-
-   if ( Chess::WHITE_PIECE == current_game->getCurrentTurn() )
-   {
-      if ( false == Chess::isWhitePiece(chPiece) )
-      {
-         createNextMessage("It is WHITE's turn and you picked a BLACK piece\n");
-         return success;
-      }
-   }
-   else
-   {
-      if ( false == Chess::isBlackPiece(chPiece) )
-      {
-         createNextMessage("It is BLACK's turn and you picked a WHITE piece\n");
-         return success;
-      }
-   }
-
-   // ---------------------------------------------------
-   // Get user input for the square to move to
-   // ---------------------------------------------------
-   cout << "Move to: ";
-   std::string move_to;
-   getline(cin, move_to);
-
-   if ( move_to.length() > 2 )
-   {
-      createNextMessage("You should type only two characters (column and row)\n");
-      return success;
-   }
-
-   // ---------------------------------------------------
-   // Did the user pick a valid house to move?
-   // Must check if:
-   // - It's inside the board (A1-H8)
-   // - The move is valid
-   // ---------------------------------------------------
-   Chess::Position future;
-   future.iColumn = move_to[0];
-   future.iRow    = move_to[1];
-
-   future.iColumn = toupper(future.iColumn);
-
-   if ( future.iColumn < 'A' || future.iColumn > 'H' )
-   {
-      createNextMessage("Invalid column.\n");
-      return success;
-   }
-
-   if ( future.iRow < '0' || future.iRow > '8' )
-   {
-      createNextMessage("Invalid row.\n");
-      return success;
-   }
-
-   // Put in the string to be logged
-   to_record += future.iColumn;
-   to_record += future.iRow;
-
-   // Convert columns from ['A'-'H'] to [0x00-0x07]
-   future.iColumn = future.iColumn - 'A';
-
-   // Convert row from ['1'-'8'] to [0x00-0x07]
-   future.iRow = future.iRow - '1';
-
-   // Check if it is not the exact same square
-   if ( future.iRow == present.iRow && future.iColumn == present.iColumn )
-   {
-      createNextMessage("[Invalid] You picked the same square!\n");
-      return success;
-   }
-
-   // Is that move allowed?
-   Chess::EnPassant  S_enPassant  = { 0 };
-   Chess::Castling   S_castling   = { 0 };
-   Chess::Promotion  S_promotion  = { 0 };
-
-   if ( false == isMoveValid(present, future, &S_enPassant, &S_castling, &S_promotion) )
-   {
-      createNextMessage("[Invalid] Piece can not move to that square!\n");
-      return success;
-   }
-   
-   // ---------------------------------------------------
-   // Promotion: user most choose a piece to
-   // replace the pawn
-   // ---------------------------------------------------
-   if ( S_promotion.bApplied == true )
-   {
-      cout << "Promote to (Q, R, N, B): ";
-      std::string piece;
-      getline(cin, piece);
-
-      if ( piece.length() > 1 )
-      {
-         createNextMessage("You should type only one character (Q, R, N or B)\n");
-         return success;
-      }
-
-      char chPromoted = toupper(piece[0]);
-
-      if ( chPromoted != 'Q' && chPromoted != 'R' && chPromoted != 'N' && chPromoted != 'B' )
-      {
-         createNextMessage("Invalid character.\n");
-         return success;
-      }
-
-      S_promotion.chBefore = current_game->getPieceAtPosition(present.iRow, present.iColumn);
-
-      if (Chess::WHITE_PLAYER == current_game->getCurrentTurn())
-      {
-         S_promotion.chAfter = toupper(chPromoted);
-      }
-      else
-      {
-         S_promotion.chAfter = tolower(chPromoted);
-      }
-
-      to_record += '=';
-      to_record += toupper(chPromoted); // always log with a capital letter
-   }
-
-   // ---------------------------------------------------
-   // Log the move: do it prior to making the move
-   // because we need the getCurrentTurn()
-   // ---------------------------------------------------
-   current_game->logMove( to_record );
-
-   // ---------------------------------------------------
-   // Make the move
-   // ---------------------------------------------------
-   makeTheMove(present, future, &S_enPassant, &S_castling, &S_promotion);
-
-   // ---------------------------------------------------------------
-   // Check if this move we just did put the oponent's king in check
-   // Keep in mind that player turn has already changed
-   // ---------------------------------------------------------------
-   if ( true == current_game->playerKingInCheck() )
-   {
-      if (true == current_game->isCheckMate() )
-      {
-         if (Chess::WHITE_PLAYER == current_game->getCurrentTurn())
-         {
-            appendToNextMessage("Checkmate! Black wins the game!\n");
-         }
-         else
-         {
-            appendToNextMessage("Checkmate! White wins the game!\n");
-         }
-      }
-      else
-      { 
-         // Add to the string with '+=' because it's possible that
-         // there is already one message (e.g., piece captured)
-         if (Chess::WHITE_PLAYER == current_game->getCurrentTurn())
-         {
-            appendToNextMessage("White king is in check!\n");
-         }
-         else
-         {
-            appendToNextMessage("Black king is in check!\n");
-         }
-      }
-   }
-
-   return true;
-}
-
-
-
-bool movePieceComputerInt(int from_x, int from_y, int to_x, int to_y, bool debug) {
-
+    current_game->vector_board = current_game->bitboardToChar();
+    bool success = false;
     std::string to_record;
 
+    // Get user input for the piece they want to move
+    cout << "Choose piece to be moved. (example: A1 or b2): ";
+
+    std::string move_from;
+    getline(cin, move_from);
+    if (move_from == "Q") {
+        exit(0);
+    }
+    if (move_from == "U") {
+        
+        if (current_game->current_move>2){
+            cout << "UNDOING LAST 2 MOVES" << endl;
+            undoMove();
+            undoMove();
+            printBitBoard(*current_game);
+        }
+        else {
+            cout << "Too early in the game to undo" << endl;
+            return false;
+        }
+    }
+
+    if (move_from == "O-O" || move_from == "O-O-O") {
+        
+        Game::chess_bitboard castle_moves[2];
+        int c_moves = helperClass::get_all_castle_moves(current_game->bit_board, current_game->getCurrentTurn(), castle_moves);
+        cout << "You tried to castle. " << c_moves << endl;
+        for (int i = 0; i < c_moves; i++) {
+            if (move_from == "O-O") {
+                cout << "Castled short succesfully" << endl;
+                //white king is on the kingside castle square after castling and it's white's turn
+                if ( (castle_moves[i].white_kings == 281474976710656ULL && current_game->getCurrentTurn()) || (castle_moves[i].black_kings == 36028797018963968ULL && !current_game->getCurrentTurn()) ) {//
+                    update_current_board(castle_moves[i]);
+                    return true;
+                }
+
+                
+            }
+            if (move_from == "O-O-O") {
+                if ( (castle_moves[i].white_kings == 65536ULL && current_game->getCurrentTurn()) || (castle_moves[i].black_kings == 8388608ULL && !current_game->getCurrentTurn()) ) {
+                    cout << "Castled long succesfully" << endl;
+                    update_current_board(castle_moves[i]);
+                    return true;
+                }
+            }
+        }
+        cout << "OOoopsss could not castle in this position" << endl;
+        return false;
+    }
+
+    if (move_from.length() > 2 || move_from.length() == 0)
+    {
+        createNextMessage("You should type only two characters (column and row)\n");
+        return success;
+    }
+
     Chess::Position present;
-    present.iColumn = chess_cols[from_x];
-    present.iRow = chess_rows[from_y];
+    present.iColumn = move_from[0];
+    present.iRow = move_from[1];
+
+    // ---------------------------------------------------
+    // Did the user pick a valid piece?
+    // Must check if:
+    // - It's inside the board (A1-H8)
+    // - There is a piece in the square
+    // - The piece is consistent with the player's turn
+    // ---------------------------------------------------
+    present.iColumn = toupper(present.iColumn);
+
+    if (present.iColumn < 'A' || present.iColumn > 'H')
+    {
+        createNextMessage("Invalid column.\n");
+        return success;
+    }
+
+    if (present.iRow < '0' || present.iRow > '8')
+    {
+        createNextMessage("Invalid row.\n");
+        return success;
+    }
 
     // Put in the string to be logged
     to_record += present.iColumn;
@@ -1062,20 +340,77 @@ bool movePieceComputerInt(int from_x, int from_y, int to_x, int to_y, bool debug
     to_record += "-";
 
     // Convert column from ['A'-'H'] to [0x00-0x07]
-    present.iColumn = from_x;//present.iColumn - 'A';
+    present.iColumn = present.iColumn - 'A';
 
     // Convert row from ['1'-'8'] to [0x00-0x07]
-    present.iRow = from_y;//present.iRow - '1';
+    present.iRow = present.iRow - '1';
 
     char chPiece = current_game->getPieceAtPosition(present.iRow, present.iColumn);
+    //current_game->printOutBoard();
 
+    cout << "Piece is " << char(chPiece) << "\n";
 
+    if (0x20 == chPiece)
+    {
+        createNextMessage("You picked an EMPTY square.\n");
+        return success;
+    }
+
+    if (Chess::WHITE_PIECE == current_game->getCurrentTurn())
+    {
+        if (false == Chess::isWhitePiece(chPiece))
+        {
+            createNextMessage("It is WHITE's turn and you picked a BLACK piece\n");
+            return success;
+        }
+    }
+    else
+    {
+        if (false == Chess::isBlackPiece(chPiece))
+        {
+            createNextMessage("It is BLACK's turn and you picked a WHITE piece\n");
+            return success;
+        }
+    }
+
+    // ---------------------------------------------------
+    // Get user input for the square to move to
+    // ---------------------------------------------------
+    cout << "Move to: ";
+    std::string move_to;
+    getline(cin, move_to);
+
+    if (move_to.length() > 2)
+    {
+        createNextMessage("You should type only two characters (column and row)\n");
+        return success;
+    }
+
+    // ---------------------------------------------------
+    // Did the user pick a valid house to move?
+    // Must check if:
+    // - It's inside the board (A1-H8)
+    // - The move is valid
+    // ---------------------------------------------------
     Chess::Position future;
-    future.iColumn = chess_cols[to_x];
-    future.iRow = chess_rows[to_y];
+    future.iColumn = move_to[0];
+    future.iRow = move_to[1];
 
+    future.iColumn = toupper(future.iColumn);
 
+    if (future.iColumn < 'A' || future.iColumn > 'H')
+    {
+        createNextMessage("Invalid column.\n");
+        return success;
+    }
 
+    if (future.iRow < '0' || future.iRow > '8')
+    {
+        createNextMessage("Invalid row.\n");
+        return success;
+    }
+
+    // Put in the string to be logged
     to_record += future.iColumn;
     to_record += future.iRow;
 
@@ -1088,27 +423,222 @@ bool movePieceComputerInt(int from_x, int from_y, int to_x, int to_y, bool debug
     // Check if it is not the exact same square
     if (future.iRow == present.iRow && future.iColumn == present.iColumn)
     {
-        //createNextMessage("[Invalid] You picked the same square!\n");
-        return false;
+        createNextMessage("[Invalid] You picked the same square!\n");
+        return success;
     }
+
+
+    //check if move is valid. do this by first getting the piece type, then checking if that piece can move to that square
+    int start_square = present.iColumn * 8 + present.iRow;
+    int target_square = future.iColumn * 8 + future.iRow;
+    unsigned long long start_square_l = helperClass::SetNthBit(start_square);
+    unsigned long long future_square_l = helperClass::SetNthBit(target_square);
+    Game::chess_bitboard future_bitboard = current_game->bit_board;
+
+        if (toupper(chPiece) == 'P') {
+            unsigned long long white_pawn_end_row = 9259542123273814144ULL;
+            unsigned long long black_pawn_end_row = 72340172838076673ULL;
+
+            if (current_game->getCurrentTurn()) {
+                //white to move //clear current pawn position
+                future_bitboard.white_pawns = future_bitboard.white_pawns & (~start_square_l) | future_square_l;
+                future_bitboard = helperClass::capture_square_black(future_bitboard, future_square_l);
+
+                future_bitboard.white_queens = future_bitboard.white_queens | (future_bitboard.white_pawns & white_pawn_end_row);//if queen, queen
+                future_bitboard.white_pawns = future_bitboard.white_pawns & (~white_pawn_end_row);
+
+
+            }
+            else {
+                //black to move//clear current pawn position
+                future_bitboard.black_pawns = future_bitboard.black_pawns & (~start_square_l) | future_square_l;
+                future_bitboard = helperClass::capture_square_white(future_bitboard, future_square_l);
+            }
+            Game::chess_bitboard output_array[32];
+            int number_elemts = helperClass::get_all_pawn_moves(current_game->bit_board, current_game->getCurrentTurn(), output_array);
+            Game::chess_bitboard future_moves_pawns[48];
+            for (int i = 0; i < number_elemts; i++) {
+                future_moves_pawns[i] = output_array[i];
+            }
+            for (int i = 0; i < number_elemts; i++) {
+                Game::chess_bitboard n = future_moves_pawns[i];
+            
+                if (n == future_bitboard) {
+                    success = true;//we want to move the pawn
+                }
+            }
+        }
+        if (toupper(chPiece) == 'N') {
+            if (current_game->getCurrentTurn()) {
+                //white to move //clear current knight position
+                future_bitboard.white_knights = future_bitboard.white_knights & (~start_square_l) | future_square_l;
+                future_bitboard = helperClass::capture_square_black(future_bitboard, future_square_l);
+            }
+            else {
+                //black to move//clear current knight position
+                future_bitboard.black_knights = future_bitboard.black_knights & (~start_square_l) | future_square_l;
+                future_bitboard = helperClass::capture_square_white(future_bitboard, future_square_l);
+            }
+            Game::chess_bitboard output_array[32];
+            int number_elemts = helperClass::get_all_knight_moves(current_game->bit_board, current_game->getCurrentTurn(), output_array);
+            Game::chess_bitboard future_moves_knights[48];
+            for (int i = 0; i < number_elemts; i++) {
+                future_moves_knights[i] = output_array[i];
+            }
+            for (int i = 0; i < number_elemts; i++) {
+                Game::chess_bitboard n = future_moves_knights[i];
+
+                if (n == future_bitboard) {
+                    success = true;//we want to move the knight
+                }
+            }
+        }
+        if (toupper(chPiece) == 'B') {
+            if (current_game->getCurrentTurn()) {
+                //white to move //clear current bishop position
+                future_bitboard.white_bishops = future_bitboard.white_bishops & (~start_square_l) | future_square_l;
+                future_bitboard = helperClass::capture_square_black(future_bitboard, future_square_l);
+            }
+            else {
+                //black to move//clear current bishop position
+                future_bitboard.black_bishops = future_bitboard.black_bishops & (~start_square_l) | future_square_l;
+                future_bitboard = helperClass::capture_square_white(future_bitboard, future_square_l);
+            }
+            Game::chess_bitboard output_array[32];
+            int number_elemts = helperClass::get_all_bishop_moves(current_game->bit_board, current_game->getCurrentTurn(), output_array);
+            Game::chess_bitboard future_moves_bishops[48];
+            for (int i = 0; i < number_elemts; i++) {
+                future_moves_bishops[i] = output_array[i];
+            }
+            for (int i = 0; i < number_elemts; i++) {
+                Game::chess_bitboard n = future_moves_bishops[i];
+
+                if (n == future_bitboard) {
+                    success = true;//we want to move the bishop
+                }
+            }
+        }
+        if (toupper(chPiece) == 'R') {
+            if (current_game->getCurrentTurn()) {
+                //white to move //clear current bishop position
+                future_bitboard.white_rooks = future_bitboard.white_rooks & (~start_square_l) | future_square_l;
+                future_bitboard = helperClass::capture_square_black(future_bitboard, future_square_l);
+            }
+            else {
+                //black to move//clear current rook position
+                future_bitboard.black_rooks = future_bitboard.black_rooks & (~start_square_l) | future_square_l;
+                future_bitboard = helperClass::capture_square_white(future_bitboard, future_square_l);
+            }
+            Game::chess_bitboard output_array[32];
+            int number_elemts = helperClass::get_all_rook_moves(current_game->bit_board, current_game->getCurrentTurn(), output_array);
+            Game::chess_bitboard future_moves_rooks[48];
+            for (int i = 0; i < number_elemts; i++) {
+                future_moves_rooks[i] = output_array[i];
+            }
+            for (int i = 0; i < number_elemts; i++) {
+                Game::chess_bitboard n = future_moves_rooks[i];
+
+                if (n == future_bitboard) {
+                    success = true;//we want to move the rook
+                }
+            }
+        }
+        if (toupper(chPiece) == 'Q') {
+            if (current_game->getCurrentTurn()) {
+                //white to move //clear current rook position
+                future_bitboard.white_queens = future_bitboard.white_queens & (~start_square_l) | future_square_l;
+                future_bitboard = helperClass::capture_square_black(future_bitboard, future_square_l);
+            }
+            else {
+                //black to move//clear current queen position
+                future_bitboard.black_queens = future_bitboard.black_queens & (~start_square_l) | future_square_l;
+                future_bitboard = helperClass::capture_square_white(future_bitboard, future_square_l);
+            }
+            Game::chess_bitboard output_array[32];
+            int number_elemts = helperClass::get_all_queen_moves(current_game->bit_board, current_game->getCurrentTurn(), output_array);
+            Game::chess_bitboard future_moves_queens[48];
+            for (int i = 0; i < number_elemts; i++) {
+                future_moves_queens[i] = output_array[i];
+            }
+            for (int i = 0; i < number_elemts; i++) {
+                Game::chess_bitboard n = future_moves_queens[i];
+
+                if (n == future_bitboard) {
+                    success = true;//we want to move the queen
+                }
+            }
+        }
+        if (toupper(chPiece) == 'K') {
+            if (current_game->getCurrentTurn()) {
+                //white to move //clear current queen position
+                future_bitboard.white_kings = future_bitboard.white_kings & (~start_square_l) | future_square_l;
+                future_bitboard = helperClass::capture_square_black(future_bitboard, future_square_l);
+            }
+            else {
+                //black to move//clear current king position
+                future_bitboard.black_kings = future_bitboard.black_kings & (~start_square_l) | future_square_l;
+                future_bitboard = helperClass::capture_square_white(future_bitboard, future_square_l);
+            }
+            Game::chess_bitboard output_array[32];
+            int number_elemts = helperClass::get_all_king_moves(current_game->bit_board, current_game->getCurrentTurn(), output_array);
+            Game::chess_bitboard future_moves_kings[48];
+            for (int i = 0; i < number_elemts; i++) {
+                future_moves_kings[i] = output_array[i];
+            }
+            for (int i = 0; i < number_elemts; i++) {
+                Game::chess_bitboard n = future_moves_kings[i];
+
+                if (n == future_bitboard) {
+                    success = true;//we want to move the king
+                }
+            }
+        }
+        
+
+
+
+    if (success) {
+
+        update_current_board(future_bitboard);
+        printBitBoard(*current_game);
+        cout << endl << endl;
+    }
+    else {
+        
+    cout << "Unfortunately, the move was found to be invalid" << endl;
+    }
+    return success;
+
 
     // Is that move allowed?
-    Chess::EnPassant  S_enPassant = { 0 };
-    Chess::Castling   S_castling = { 0 };
     Chess::Promotion  S_promotion = { 0 };
 
-    if (false == isMoveValidComputer(present, future, &S_enPassant, &S_castling, &S_promotion))
-    {
-        //createNextMessage("[Invalid] Piece can not move to that square!\n");
-        if (debug)
-            cout << "You cannot move the piece to that square";
-        return false;
-    }
+    
 
-
+    // ---------------------------------------------------
+    // Promotion: user most choose a piece to
+    // replace the pawn
+    // ---------------------------------------------------
+    /*
     if (S_promotion.bApplied == true)
     {
-        char chPromoted = 'Q';
+        cout << "Promote to (Q, R, N, B): ";
+        std::string piece;
+        getline(cin, piece);
+
+        if (piece.length() > 1)
+        {
+            createNextMessage("You should type only one character (Q, R, N or B)\n");
+            return success;
+        }
+
+        char chPromoted = toupper(piece[0]);
+
+        if (chPromoted != 'Q' && chPromoted != 'R' && chPromoted != 'N' && chPromoted != 'B')
+        {
+            createNextMessage("Invalid character.\n");
+            return success;
+        }
 
         S_promotion.chBefore = current_game->getPieceAtPosition(present.iRow, present.iColumn);
 
@@ -1124,373 +654,52 @@ bool movePieceComputerInt(int from_x, int from_y, int to_x, int to_y, bool debug
         to_record += '=';
         to_record += toupper(chPromoted); // always log with a capital letter
     }
+    */
 
     // ---------------------------------------------------
     // Log the move: do it prior to making the move
     // because we need the getCurrentTurn()
     // ---------------------------------------------------
-    current_game->logMove(to_record);
-
-    // ---------------------------------------------------
-    // Make the move
-    // ---------------------------------------------------
-    makeTheMoveComputer(present, future, &S_enPassant, &S_castling, &S_promotion);
-
-    // ---------------------------------------------------------------
-    // Check if this move we just did put the oponent's king in check
-    // Keep in mind that player turn has already changed
-    // ---------------------------------------------------------------
-    if (true == current_game->playerKingInCheck())
-    {
-        if (true == current_game->isCheckMate())
-        {
-            if (Chess::WHITE_PLAYER == current_game->getCurrentTurn())
-            {
-                if (debug)
-                    cout << "CHECKMATE BLACK WINS";
-                //appendToNextMessage("Checkmate! Black wins the game!\n");
-            }
-            else
-            {
-                if (debug)
-                    cout << "CHECKMATE WHTIE WINS";
-                // appendToNextMessage("Checkmate! White wins the game!\n");
-            }
-        }
-        else
-        {
-            // Add to the string with '+=' because it's possible that
-            // there is already one message (e.g., piece captured)
-            if (Chess::WHITE_PLAYER == current_game->getCurrentTurn())
-            {
-                if (debug)
-                    cout << "WHITE KING IN CHECK";
-                // appendToNextMessage("White king is in check!\n");
-            }
-            else
-            {
-                if (debug)
-                    cout << "BLACK KING IN CHECK";
-                //appendToNextMessage("Black king is in check!\n");
-            }
-        }
-    }
-
-    return true;
-
+    // current_game->logMove(to_record);
 
 }
 
-
-
-void undoMoveComputer() {
-    //if (false == current_game->undoIsPossible()) {
-    //    cout << "UNDO IS IMPOSSIBLE";
-    //}
-    current_game->undoLastMoveComputer();
-}
-
-
-void saveGame(void)
-{
-   string file_name;
-   cout << "Type file name to be saved (no extension): ";
-
-   getline(cin, file_name);
-   file_name += ".dat";
-
-   std::ofstream ofs(file_name);
-   if (ofs.is_open())
-   {
-      // Write the date and time of save operation
-      auto time_now = std::chrono::system_clock::now();
-      std::time_t end_time = std::chrono::system_clock::to_time_t(time_now);
-      ofs << "[Chess console] Saved at: " << std::ctime(&end_time);
-
-      // Write the moves
-      for (unsigned i = 0; i < current_game->rounds.size(); i++)
-      {
-         ofs << current_game->rounds[i].white_move.c_str() << " | " << current_game->rounds[i].black_move.c_str() << "\n";
-      }
-
-      ofs.close();
-      createNextMessage("Game saved as " + file_name + "\n");
-   }
-   else
-   {
-      cout << "Error creating file! Save failed\n";
-   }
-
-   return;
-}
-
-void loadGame(void)
-{
-   string file_name;
-   cout << "Type file name to be loaded (no extension): ";
-
-   getline(cin, file_name);
-   file_name += ".dat";
-
-   std::ifstream ifs(file_name);
-
-   if (ifs)
-   {
-      // First, reset the pieces
-      if (NULL != current_game)
-      {
-         delete current_game;
-      }
-
-      current_game = new Game();
-
-      // Now, read the lines from the file and then make the moves
-      std::string line;
-
-      while (std::getline(ifs, line) )
-      {
-         // Skip lines that starts with "[]"
-         if ( 0 == line.compare(0, 1, "["))
-         {
-            continue;
-         }
-
-         // There might be one or two moves in the line
-         string loaded_move[2];
-         
-         // Find the separator and subtract one
-         std::size_t separator = line.find(" |");
-
-         // For the first move, read from the beginning of the string until the separator
-         loaded_move[0] = line.substr(0, separator);
-
-         // For the second move, read from the separator until the end of the string (omit second parameter)
-         loaded_move[1] = line.substr(line.find("|") + 2);
-
-         for (int i = 0; i < 2 && loaded_move[i] != ""; i++)
-         {
-            // Parse the line
-            Chess::Position from;
-            Chess::Position to;
-
-            char chPromoted = 0;
-
-            current_game->parseMove(loaded_move[i], &from, &to, &chPromoted);
-
-            // Check if line is valid
-            if ( from.iColumn < 0 || from.iColumn > 7 ||
-                 from.iRow    < 0 || from.iRow    > 7 ||
-                 to.iColumn   < 0 || to.iColumn   > 7 ||
-                 to.iRow      < 0 || to.iRow      > 7 )
-            {
-               createNextMessage("[Invalid] Can't load this game because there are invalid lines!\n");
-
-               // Clear everything and return
-               current_game = new Game();
-               return;
-            }
-
-            // Is that move allowed? (should be because we already validated before saving)
-            Chess::EnPassant S_enPassant = { 0 };
-            Chess::Castling  S_castling  = { 0 };
-            Chess::Promotion S_promotion = { 0 };
-
-            if ( false == isMoveValid(from, to, &S_enPassant, &S_castling, &S_promotion) )
-            {
-               createNextMessage("[Invalid] Can't load this game because there are invalid moves!\n");
-
-               // Clear everything and return
-               current_game = new Game();
-               return;
-            }
-
-            // ---------------------------------------------------
-            // A promotion occurred
-            // ---------------------------------------------------
-            if ( S_promotion.bApplied == true )
-            {
-               if ( chPromoted != 'Q' && chPromoted != 'R' && chPromoted != 'N' && chPromoted != 'B' )
-               {
-                  createNextMessage("[Invalid] Can't load this game because there is an invalid promotion!\n");
-
-                  // Clear everything and return
-                  current_game = new Game();
-                  return;
-               }
-
-               S_promotion.chBefore = current_game->getPieceAtPosition(from.iRow, from.iColumn);
-
-               if (Chess::WHITE_PLAYER == current_game->getCurrentTurn())
-               {
-                  S_promotion.chAfter = toupper(chPromoted);
-               }
-               else
-               {
-                  S_promotion.chAfter = tolower(chPromoted);
-               }
-            }
-
-
-            // Log the move
-            current_game->logMove(loaded_move[i]);
-
-            // Make the move
-            makeTheMove(from, to, &S_enPassant, &S_castling, &S_promotion);
-         }
-      }
-
-      // Extra line after the user input
-      createNextMessage("Game loaded from " + file_name + "\n");
-
-      return;
-   }
-   else
-   {
-      createNextMessage("Error loading " + file_name + ". Creating a new game instead\n");
-      current_game = new Game();
-      return;
-   }
-}
-
-
-int minimaxAB(int depth, int alpha, int beta, int white) {
-
-    if (current_game->isFinished() && current_game->isCheckMate()) {
-        //cout << "GOT MATE!" << endl;
-        if (current_game->getCurrentTurn() == 1) {
-            //white to play, but white is in checkmate. so white has lost
-            return -1000;
-        }
-        else {
-            return 1000; // otherwise white has won!
-        }
-
-    }
-    if (depth == 0) {
-        //return heuristic evaluation function
-        return helperClass::getValueBoardPointer(current_game);
-    }
-    //move stuff
-    int moves_piece[16 * 20 * 2];//max theoretical moves = 16(nr pieces)*32(nr moves per piece) *2(coordinates)
-    moves_piece[0] = 1;
-    int best_move_value = 1000;
-    if (white) {
-        best_move_value = -1000;
-    }
-    for (int x = 0; x < 8; x++) {
-        for (int y = 0; y < 8; y++) {
-            if (white == helperClass::iswhitepiece(current_game->board[x][y])) {
-                int start_idx = moves_piece[0];
-                helperClass::get_Moves_Piece_INTARR(current_game->board[x][y], y, x, moves_piece, start_idx);
-                for (int a = start_idx; a < moves_piece[0]; a++) {//for every move on board
-                    //cout << "x: " << x << "y: " << y << "move to: " << moveTo[0] << " " << moveTo[1] << "number elements: " << *moves_piece << endl;
-                    bool success = movePieceComputerInt(y, x, moves_piece[a], moves_piece[a + 1], false);
-                    if (success) {
-                        total_moves++;
-                        if (white) {
-                            best_move_value = std::max(best_move_value, minimaxAB(depth - 1, alpha, beta, 0));
-                            if (best_move_value>=beta){
-                                undoMoveComputer();
-                                return best_move_value;
-                            }
-                            alpha = std::max(alpha, best_move_value);
-                        }
-                        else {
-                            best_move_value = std::min(best_move_value, minimaxAB(depth - 1, alpha, beta, 1));
-                            if (best_move_value <= alpha) {
-                                undoMoveComputer();
-                                return best_move_value;
-                            }
-                            beta = std::min(beta, best_move_value);
-
-                        }
-                        undoMoveComputer();
-                    }
-                    a++;
-                }
-                
-            }
-        }
-    }
-    return best_move_value;
-}
-
-
-void computer_play_move(int white) {
-    if (depth < 1) {
-        cout << "Error, depth must be at least 1!" << endl << "Depth set to 1!" << endl;
-        depth = 1;
-    }
-    // the top minmax function that does not undo the best move it's 
-    vector<vector<char>> board_vector = current_game->getAllPieces();
-    vector<vector<int>> Pieces = helperClass::getPiecesPosition(board_vector, white);//get black pieces
-    vector<int> best_from;
-    vector<int> best_to;
-    vector<int> PiecePos;
-    vector<int> moveTo;
-    int best_value = (white * -2000) + 1000;//-1000 if white, +1000 if white == 1. 
-    int moves_considered = 0;
-    auto start = std::chrono::system_clock::now();
-    for (int x = 0; x < Pieces.size(); x++) {
-        PiecePos = Pieces[x];
-        vector<vector<int>> moves_piece = helperClass::get_Moves_Piece(board_vector[PiecePos[1]][PiecePos[0]], PiecePos[0], PiecePos[1]);
-        for (int a = 0; a < moves_piece.size(); a++) {//for every move on board
-            moveTo = moves_piece[a];
-            bool success = movePieceComputerInt(PiecePos[0],PiecePos[1], moveTo[0], moveTo[1], false);
-            //debug
-            //if (current_game->board[PiecePos[1]][PiecePos[0]] == 'k') cout << "move from col: " << PiecePos[0] << " row: " << PiecePos[1] << "Move to: " << moveTo[0] << moveTo[1] << "SUCCESS: " << success << endl;
-            if (success) {
-                moves_considered++;
-                int board_value = minimaxAB(depth-1, -1000, 1000, abs(white-1));
-                if (white) {
-                    if (board_value > best_value) {
-                        best_value = board_value;
-                        best_from = PiecePos;
-                        best_to = moveTo;
-                    }
-                }
-                else {
-                    if (board_value < best_value) {
-                        best_value = board_value;
-                        best_from = PiecePos;
-                        best_to = moveTo;
-                    }
-                }
-
-                undoMoveComputer();
-            }
-        }
-    }
-    //do the move
-    cout << "Number of legal moves black: " << moves_considered << endl;
-    bool success = movePieceComputerInt(best_from[0], best_from[1], best_to[0], best_to[1], true);
-    if (success == false) {
-        throw("Something bad");
-    }
-    bool debug = true;
-    if (debug) {
-        auto end = std::chrono::system_clock::now();
-        std::chrono::duration<double> elapsed_seconds = end - start;
-        clearScreen();//these should be in the main function
-        printSituation(*current_game);
-        printBoard(*current_game);
-        cout << "elapsed time: " << elapsed_seconds.count() << "s" << endl;
-        cout << "Heuristic value: " << best_value << endl;
-        
-    }
-    
-}
 
 int main()
 {
-   bool bRun = true;
+    bool bRun = true;
 
-   // Clear screen an print the logo
-   clearScreen();
-   printLogo();
+    // Clear screen an print the logo
+    clearScreen();
+    printLogo();
 
-   string input = "";
+    newGame();
+    //cout << current_game->bit_board.black_pawns << endl;
+    printBitBoard(*current_game);
+    cout << "Useful commands: (Q - quit), (U - Undo), (O-O - short castles), (O-O-O - long castles)" << endl;
 
+    string input = "";
+    while (true){
+        
+        if(movePieceMain()){
+        clearScreen();
+        printBitBoard(*current_game);
+        cout << "Computer thinking" << endl;
+        auto t1 = chrono::high_resolution_clock::now();
+        computerPlayMove(depth, -1000, 1000, current_game->getCurrentTurn());
+        auto t2 = chrono::high_resolution_clock::now();
+        clearScreen();
+        printBitBoard(*current_game);
+        cout << "Computer thought for: " << duration_cast<chrono::seconds>(t2-t1) << endl;
+        cout << "Current minimax value: " << current_minimax << endl;
+        cout << "Computer looked at " << total_moves << " moves" << endl;
+        total_moves = 0;
+        }
+
+    }
+
+
+   /*
    while( bRun )
    {
       printMessage();
@@ -1625,6 +834,6 @@ int main()
       }
    }
 
-
+   */
    return 0;
 }

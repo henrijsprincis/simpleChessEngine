@@ -1,3 +1,4 @@
+#define _HAS_STD_BYTE 0
 #include "includes.h"
 #include "chess.h"
 #include "user_interface.h"
@@ -5,7 +6,6 @@
 #include <map>
 #include "helperClass.h"
 
-static map<char, int> p_to_v = { {'K', 0}, {'Q', 9}, {'R', 5}, {'B', 4}, {'N', 3}, {'P', 1}, {'k', 0}, {'q', -9}, {'r', -5}, {'b', -4}, {'n', -3}, {'p', -1} };
 
 
 
@@ -101,24 +101,17 @@ Game::Game()
 
    // Game on!
    m_bGameFinished = false;
-
-   // Nothing has happend yet
-   m_undo.bCapturedLastMove         = false;
-   m_undo.bCanUndo                  = false;
-   m_undo.bCastlingKingSideAllowed  = false;
-   m_undo.bCastlingQueenSideAllowed = false;
-   m_undo.en_passant.bApplied       = false;
-   m_undo.castling.bApplied         = false;
-   board_value_array[0] = 0;
-   // Initial board settings
-   memcpy(board, initial_board, sizeof(char) * 8 * 8);
+    
 
    // Castling is allowed (to each side) until the player moves the king or the rook
    m_bCastlingKingSideAllowed[WHITE_PLAYER]  = true;
    m_bCastlingKingSideAllowed[BLACK_PLAYER]  = true;
-
    m_bCastlingQueenSideAllowed[WHITE_PLAYER] = true;
    m_bCastlingQueenSideAllowed[BLACK_PLAYER] = true;
+
+   setStartingPosition();
+   position_array[current_move] = bit_board;
+   vector_board = bitboardToChar();
 }
 
 Game::~Game()
@@ -128,6 +121,9 @@ Game::~Game()
    rounds.clear();
 }
 
+
+
+/*
 void Game::movePiece(Position present, Position future, Chess::EnPassant* S_enPassant, Chess::Castling* S_castling, Chess::Promotion* S_promotion)
 {
     int board_value_increase = 0;
@@ -496,23 +492,6 @@ void Game::undoLastMoveComputer()
         m_bCastlingQueenSideAllowed[getCurrentTurn()] = m_undo.bCastlingQueenSideAllowed_array[m_undo.bCastlingQueenSideAllowed_idx];
     }
 
-
-    /*
-    //add additional unduablyness
-    m_undo.li_bCapturedLastMove.pop_back();
-    m_undo.li_bCastlingKingSideAllowed.pop_back();
-    m_undo.li_bCastlingQueenSideAllowed.pop_back();
-    //This might be buggy
-    m_undo.li_en_passant.pop_back();
-    m_undo.li_castling.pop_back();
-    m_undo.li_promotion.pop_back();
-    
-    m_undo.bCapturedLastMove = m_undo.li_bCapturedLastMove.back();
-    m_undo.en_passant.bApplied = m_undo.li_en_passant.back().bApplied;
-    m_undo.castling.bApplied = m_undo.li_castling.back().bApplied;
-    m_undo.promotion.bApplied = m_undo.li_promotion.back().bApplied;
-    */
-
     //bools
     m_undo.bCapturedLastMove_idx--;
     m_undo.bCapturedLastMove = m_undo.bCapturedLastMove_array[m_undo.bCapturedLastMove_idx];
@@ -554,11 +533,6 @@ bool Game::castlingAllowed(Side iSide, int iColor)
    {
       return m_bCastlingKingSideAllowed[iColor];
    }
-}
-
-char Game::getPieceAtPosition(int iRow, int iColumn)
-{
-   return board[iRow][iColumn];
 }
 
 char Game::getPieceAtPosition(Position pos)
@@ -2000,11 +1974,6 @@ bool Game::isFinished( void )
    return m_bGameFinished;
 }
 
-int Game::getCurrentTurn(void)
-{
-   return m_CurrentTurn;
-}
-
 int Game::getOpponentColor(void)
 {
    int iColor;
@@ -2129,5 +2098,118 @@ vector<vector<char>> Game::getAllPieces() {
     }
     return board_vector;
 }
+*/
 
-//void Game::getValidMoves( void )
+bool Game::isCheckMate() {
+    return ( !(bit_board.black_kings > 0ULL) && (bit_board.white_kings > 0ULL) );
+
+}
+
+int Game::getCurrentTurn(void)
+{
+    //returns 1 when white to move and 0 when black to move
+    return (current_move+1) % 2;
+}
+
+char Game::getPieceAtPosition(int iRow, int iColumn)
+{
+    return vector_board[iColumn][iRow];
+}
+
+//bitboard functions
+void Game::setStartingPosition() {////A                  B                  C                D                    E                  F                     G                  H
+    chess_init.white_pawns = { {0,1,0,0,0,0,0,0}, {0,1,0,0,0,0,0,0}, {0,1,0,0,0,0,0,0}, {0,1,0,0,0,0,0,0}, {0,1,0,0,0,0,0,0}, {0,1,0,0,0,0,0,0}, {0,1,0,0,0,0,0,0}, {0,1,0,0,0,0,0,0} };
+    chess_init.black_pawns = { {0,0,0,0,0,0,1,0}, {0,0,0,0,0,0,1,0}, {0,0,0,0,0,0,1,0}, {0,0,0,0,0,0,1,0}, {0,0,0,0,0,0,1,0}, {0,0,0,0,0,0,1,0}, {0,0,0,0,0,0,1,0}, {0,0,0,0,0,0,1,0} };//{0,0,0,0,0,0,1,0}, {0,0,0,0,0,0,1,0}, {0,0,0,0,0,0,1,0}, {0,0,0,0,0,0,1,0}, {0,0,0,0,0,0,1,0}, {0,0,0,0,0,0,1,0}, {0,0,0,0,0,0,1,0}, {0,0,0,0,0,0,1,0}
+
+    chess_init.white_knights = { {0,0,0,0,0,0,0,0}, {1,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {1,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0} };
+    chess_init.black_knights = { {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,1}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,1}, {0,0,0,0,0,0,0,0} };//{0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,1}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,1}, {0,0,0,0,0,0,0,0}
+
+    chess_init.white_bishops = { {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {1,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {1,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0} };
+    chess_init.black_bishops = { {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,1}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,1}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0} };//{0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,1}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,1}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}
+
+    chess_init.white_rooks = { {1,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {1,0,0,0,0,0,0,0} };
+    chess_init.black_rooks = { {0,0,0,0,0,0,0,1}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,1} };
+
+    chess_init.white_queens = { {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {1,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0} };
+    chess_init.black_queens = { {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,1}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0} };
+
+    chess_init.white_kings = { {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {1,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0} };
+    chess_init.black_kings = { {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,1}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0} };
+
+    bit_board.pawns_white_start = helperClass::vector_to_bitboard(chess_init.white_pawns);
+    bit_board.pawns_black_start = helperClass::vector_to_bitboard(chess_init.black_pawns);
+    
+    bit_board.white_pawns = helperClass::vector_to_bitboard(chess_init.white_pawns);
+    bit_board.black_pawns = helperClass::vector_to_bitboard(chess_init.black_pawns);
+
+    bit_board.white_knights = helperClass::vector_to_bitboard(chess_init.white_knights);
+    bit_board.black_knights = helperClass::vector_to_bitboard(chess_init.black_knights);
+
+    bit_board.white_bishops = helperClass::vector_to_bitboard(chess_init.white_bishops);
+    bit_board.black_bishops = helperClass::vector_to_bitboard(chess_init.black_bishops);
+
+    bit_board.white_rooks = helperClass::vector_to_bitboard(chess_init.white_rooks);
+    bit_board.black_rooks = helperClass::vector_to_bitboard(chess_init.black_rooks);
+
+    bit_board.white_kings = helperClass::vector_to_bitboard(chess_init.white_kings);
+    bit_board.black_kings = helperClass::vector_to_bitboard(chess_init.black_kings);
+
+    bit_board.white_queens = helperClass::vector_to_bitboard(chess_init.white_queens);
+    bit_board.black_queens = helperClass::vector_to_bitboard(chess_init.black_queens);
+
+}
+
+vector<vector<char>> Game::bitboardToChar() {
+    vector<vector<char>> board_vector(8, vector<char>(8, ' '));
+    
+    for (int col = 0; col < 8; col++) {
+        for (int row = 0; row < 8; row++) {
+            int bit = col * 8 + row;
+            char c = ' ';
+            if (helperClass::IsBitSet(bit_board.white_pawns, bit)) {
+                c = 'P';
+            }
+            if (helperClass::IsBitSet(bit_board.black_pawns, bit)) {
+                c = 'p';
+            }
+            if (helperClass::IsBitSet(bit_board.white_knights, bit)) {
+                c = 'N';
+            }
+            if (helperClass::IsBitSet(bit_board.black_knights, bit)) {
+                c = 'n';
+            }
+
+            if (helperClass::IsBitSet(bit_board.white_bishops, bit)) {
+                c = 'B';
+            }
+            if (helperClass::IsBitSet(bit_board.black_bishops, bit)) {
+                c = 'b';
+            }
+
+            if (helperClass::IsBitSet(bit_board.white_rooks, bit)) {
+                c = 'R';
+            }
+            if (helperClass::IsBitSet(bit_board.black_rooks, bit)) {
+                c = 'r';
+            }
+            if (helperClass::IsBitSet(bit_board.white_queens, bit)) {
+                c = 'Q';
+            }
+
+            if (helperClass::IsBitSet(bit_board.black_queens, bit)) {
+                c = 'q';
+            }
+
+            if (helperClass::IsBitSet(bit_board.white_kings, bit)) {
+                c = 'K';
+            }
+
+            if (helperClass::IsBitSet(bit_board.black_kings, bit)) {
+                c = 'k';
+            }
+            board_vector[col][row] = c;
+        }
+    }
+    return board_vector;
+
+}
