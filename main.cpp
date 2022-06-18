@@ -852,9 +852,6 @@ bool movePieceMain(std::string input = "")
         return success;
     }
 
-    // Put in the string to be logged
-    to_record += move_from;
-
     // Convert columns from ['A'-'H'] to [0x00-0x07]
     future.iColumn = future.iColumn - 'A';
 
@@ -1088,7 +1085,13 @@ bool movePieceMain(std::string input = "")
         }
 
         // Put in the string to be logged
-        to_record += move_from;
+        to_record += present.iColumn;
+        to_record += present.iRow;
+        to_record += '-';
+
+        // Put in the string to be logged
+        to_record += toupper(future.iColumn + 'A');
+        to_record += future.iRow + '1';
 
         present.iColumn -= 'A';
         present.iRow -= '1';
