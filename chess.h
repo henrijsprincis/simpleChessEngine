@@ -232,7 +232,7 @@ public:
        }
 
    } bit_board;
-   
+   static   int getNumberPieces(chess_bitboard b);
    
    struct chess_init_arrays {
        vector<vector<int>> white_pawns;

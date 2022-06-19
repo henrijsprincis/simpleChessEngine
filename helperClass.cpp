@@ -1163,6 +1163,19 @@ int helperClass::get_all_bishop_moves(Game::chess_bitboard current_board, int wh
 	return counter;
 }
 
+
+vector<vector<int>> white_rook_king = { {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {1,0,0,0,0,0,0,0} };
+unsigned long long white_rook_king_bitboard = helperClass::vector_to_bitboard(white_rook_king);
+
+vector<vector<int>> white_rook_queen = { {1,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0} };
+unsigned long long white_rook_queen_bitboard = helperClass::vector_to_bitboard(white_rook_queen);
+
+vector<vector<int>> black_rook_king = { {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,1} };
+unsigned long long black_rook_king_bitboard = helperClass::vector_to_bitboard(black_rook_king);
+
+vector<vector<int>> black_rook_queen = { {0,0,0,0,0,0,0,1}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0} };
+unsigned long long black_rook_queen_bitboard = helperClass::vector_to_bitboard(black_rook_queen);
+
 int helperClass::get_all_rook_moves(Game::chess_bitboard current_board, int white, Game::chess_bitboard output_array[32]) {
 
 	Game::chess_bitboard current_board_c = current_board;
@@ -1189,11 +1202,23 @@ int helperClass::get_all_rook_moves(Game::chess_bitboard current_board, int whit
 					// if the space is clear, allow moving to it
 					output_array[counter] = current_board_c;
 					output_array[counter].white_rooks = (current_rooks & (~l_start)) | l_end;//current pawns - starting pos + end position.
+					if (l_start == white_rook_king_bitboard) {
+						output_array[counter].white_castle_king = false;
+					}
+					if (l_start == white_rook_queen_bitboard) {
+						output_array[counter].white_castle_queen = false;
+					}
 					counter++;
 				}
 				if (is_square_occupied_black(current_board, l_end)) {
 					output_array[counter] = capture_square_black(current_board, l_end);
 					output_array[counter].white_rooks = (current_rooks & (~l_start)) | l_end;
+					if (l_start == white_rook_king_bitboard) {
+						output_array[counter].white_castle_king = false;
+					}
+					if (l_start == white_rook_queen_bitboard) {
+						output_array[counter].white_castle_queen = false;
+					}
 					counter++;
 				}
 				l_end_all = l_end_all & (~l_end);
@@ -1208,11 +1233,23 @@ int helperClass::get_all_rook_moves(Game::chess_bitboard current_board, int whit
 					// if the space is clear, allow moving to it
 					output_array[counter] = current_board;
 					output_array[counter].black_rooks = (current_rooks & (~l_start)) | l_end;//current pawns - starting pos + end position.
+					if (l_start == black_rook_king_bitboard) {
+						output_array[counter].black_castle_king = false;
+					}
+					if (l_start == black_rook_queen_bitboard) {
+						output_array[counter].black_castle_queen = false;
+					}
 					counter++;
 				}
 				if (is_square_occupied_white(current_board, l_end)) {
 					output_array[counter] = capture_square_white(current_board, l_end);
 					output_array[counter].black_rooks = (current_rooks & (~l_start)) | l_end;
+					if (l_start == black_rook_king_bitboard) {
+						output_array[counter].black_castle_king = false;
+					}
+					if (l_start == black_rook_queen_bitboard) {
+						output_array[counter].black_castle_queen = false;
+					}
 					counter++;
 				}
 				l_end_all = l_end_all & (~l_end);
@@ -1363,6 +1400,8 @@ int helperClass::get_all_king_moves(Game::chess_bitboard current_board, int whit
 	return counter;
 }
 
+
+
 int helperClass::get_all_castle_moves(Game::chess_bitboard current_board, int white, Game::chess_bitboard output_array[2]) {
 	int counter = 0;
 	if (white) {
@@ -1377,7 +1416,7 @@ int helperClass::get_all_castle_moves(Game::chess_bitboard current_board, int wh
 			if (is_square_free(current_board, square_1) && is_square_free(current_board, square_2)) {//the two squares are free. I will allow castleing through check for now.
 				output_array[counter] = current_board;
 				output_array[counter].white_kings = square_2;
-				output_array[counter].white_rooks = output_array[counter].white_rooks & (~72057594037927936ULL) | square_1;
+				output_array[counter].white_rooks = output_array[counter].white_rooks & (~white_rook_king_bitboard) | square_1;
 				output_array[counter].white_castle_king = false;
 				output_array[counter].white_castle_queen = false;
 				counter++;
@@ -1393,7 +1432,7 @@ int helperClass::get_all_castle_moves(Game::chess_bitboard current_board, int wh
 			if (is_square_free(current_board, square_1) && is_square_free(current_board, square_2) && is_square_free(current_board, square_3)) {//the two squares are free. I will allow castleing through check for now.
 				output_array[counter] = current_board;
 				output_array[counter].white_kings = square_2;
-				output_array[counter].white_rooks = output_array[counter].white_rooks & (~1ULL) | square_1;
+				output_array[counter].white_rooks = output_array[counter].white_rooks & (~white_rook_queen_bitboard) | square_1;
 				output_array[counter].white_castle_king = false;
 				output_array[counter].white_castle_queen = false;
 				counter++;
@@ -1412,7 +1451,7 @@ int helperClass::get_all_castle_moves(Game::chess_bitboard current_board, int wh
 			if (is_square_free(current_board, square_1) && is_square_free(current_board, square_2)) {//the two squares are free. I will allow castleing through check for now.
 				output_array[counter] = current_board;
 				output_array[counter].black_kings = square_2;
-				output_array[counter].black_rooks = output_array[counter].black_rooks & (~9223372036854775808ULL) | square_1;
+				output_array[counter].black_rooks = output_array[counter].black_rooks & (~black_rook_king_bitboard) | square_1;
 				output_array[counter].black_castle_king = false;
 				output_array[counter].black_castle_queen = false;
 				counter++;
@@ -1428,7 +1467,7 @@ int helperClass::get_all_castle_moves(Game::chess_bitboard current_board, int wh
 			if (is_square_free(current_board, square_1) && is_square_free(current_board, square_2) && is_square_free(current_board, square_3)) {//the two squares are free. I will allow castleing through check for now.
 				output_array[counter] = current_board;
 				output_array[counter].black_kings = square_2;
-				output_array[counter].black_rooks = output_array[counter].black_rooks & (~128ULL) | square_1;
+				output_array[counter].black_rooks = output_array[counter].black_rooks & (~black_rook_queen_bitboard) | square_1;
 				output_array[counter].black_castle_king = false;
 				output_array[counter].black_castle_queen = false;
 				counter++;

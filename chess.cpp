@@ -2159,6 +2159,10 @@ void Game::setStartingPosition() {////A                  B                  C   
 
 }
 
+int Game::getNumberPieces(Game::chess_bitboard b) {
+    return popcount(b.white_pawns + b.black_pawns + b.white_knights + b.black_knights + b.white_bishops + b.black_bishops + b.white_rooks + b.black_rooks + b.white_kings + b.black_kings + b.white_queens + b.black_queens);
+}
+
 vector<vector<char>> Game::bitboardToChar() {
     vector<vector<char>> board_vector(8, vector<char>(8, ' '));
     

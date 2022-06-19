@@ -42,7 +42,8 @@ char chess_rows[9] = "12345678";
 int total_moves = 0;
 std::unordered_map<Game::chess_bitboard, int> hash_table;
 
-int depth = 5;
+int depth = 4;
+int capture_depth = 4;// after normal depth finished, the computer will return minimax of captures.
 int current_minimax = 0;
 //---------------------------------------------------------------------------------------
 // Helper
@@ -71,7 +72,16 @@ void update_current_board(Game::chess_bitboard future_board) {
     current_game->position_array[current_game->current_move] = current_game->bit_board;
 }
 
-int minimaxAB(int depth, int alpha, int beta, int white) {
+int minimaxABCaptures(int depth, int alpha, int beta, int white) {
+    total_moves++;
+    //calculate all captures until a certain depth.
+        
+    
+    //current_game->vector_board = current_game->bitboardToChar();
+    //printBitBoard(*current_game);
+    //std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    //clearScreen();
+
     if (current_game->isCheckMate()) {
         //cout << "GOT MATE!" << endl;
         if (current_game->getCurrentTurn() == 1) {
@@ -86,6 +96,84 @@ int minimaxAB(int depth, int alpha, int beta, int white) {
     if (depth == 0) {
         //return heuristic evaluation function
         return helperClass::getValueBitboard(current_game->bit_board);
+        //return helperClass::getValueBitboard(current_game->bit_board);
+    }
+    //move stuff
+    int number_elemts = 0;
+    int number_of_pieces = Game::getNumberPieces(current_game->bit_board);
+    int best_move_value = helperClass::getValueBitboard(current_game->bit_board);//captures can only improve the current value
+
+    Game::chess_bitboard output_array[48];
+    for (int c = 0; c < 7; c++) {
+        switch (c) {
+        case 0://pawn
+            number_elemts = helperClass::get_all_pawn_moves(current_game->bit_board, white, output_array);
+            break;
+        case 1:
+            number_elemts = helperClass::get_all_knight_moves(current_game->bit_board, white, output_array);
+            break;
+        case 2:
+            number_elemts = helperClass::get_all_bishop_moves(current_game->bit_board, white, output_array);
+            break;
+        case 3:
+            number_elemts = helperClass::get_all_rook_moves(current_game->bit_board, white, output_array);
+            break;
+        case 4:
+            number_elemts = helperClass::get_all_queen_moves(current_game->bit_board, white, output_array);
+            break;
+        case 5:
+            number_elemts = helperClass::get_all_king_moves(current_game->bit_board, white, output_array);
+            break;
+        case 6:
+            number_elemts = helperClass::get_all_castle_moves(current_game->bit_board, white, output_array);
+            break;
+        }
+
+        for (int i = 0; i < number_elemts; i++) {
+            update_current_board(output_array[i]);
+            if (number_of_pieces > Game::getNumberPieces(current_game->bit_board)){
+                if (white) {
+                    best_move_value = std::max(best_move_value, minimaxABCaptures(depth - 1, alpha, beta, 0));
+                    if (best_move_value >= beta) {
+                        undoMove();
+                        return best_move_value;
+                    }
+                    alpha = std::max(alpha, best_move_value);
+                }
+                else {
+                    best_move_value = std::min(best_move_value, minimaxABCaptures(depth - 1, alpha, beta, 1));
+                    if (best_move_value <= alpha) {
+                        undoMove();
+                        return best_move_value;
+                    }
+                    beta = std::min(beta, best_move_value);
+                }
+            }
+            undoMove();
+        }
+    }
+
+    return best_move_value;
+    
+}
+
+int minimaxAB(int depth, int alpha, int beta, int white) {
+    total_moves++;
+    if (current_game->isCheckMate()) {
+        //cout << "GOT MATE!" << endl;
+        if (current_game->getCurrentTurn() == 1) {
+            //white to play, but white is in checkmate. so white has lost
+            return -1000;
+        }
+        else {
+            return 1000; // otherwise white has won!
+        }
+
+    }
+    if (depth == 0) {
+        //return heuristic evaluation function
+        return minimaxABCaptures(capture_depth, alpha, beta, white);
+        //return helperClass::getValueBitboard(current_game->bit_board);
     }
     //move stuff
     int number_elemts = 0;
@@ -122,7 +210,6 @@ int minimaxAB(int depth, int alpha, int beta, int white) {
 
         for (int i = 0; i < number_elemts; i++) {
             update_current_board(output_array[i]);
-            total_moves++;
             if (white) {
                 best_move_value = std::max(best_move_value, minimaxAB(depth - 1, alpha, beta, 0));
                 if (best_move_value >= beta) {
@@ -146,6 +233,7 @@ int minimaxAB(int depth, int alpha, int beta, int white) {
     return best_move_value;
 }
 
+
 void computerPlayMove(int depth, int alpha, int beta, int white) {
     if (current_game->isCheckMate()) {
         if (current_game->getCurrentTurn() == 1) {
@@ -160,9 +248,9 @@ void computerPlayMove(int depth, int alpha, int beta, int white) {
     }
     //move stuff
     int number_elemts = 0;
-    int best_move_value = 1000;
+    int best_move_value = 1001;
     if (white) {
-        best_move_value = -1000;
+        best_move_value = -1001;
     }
     Game::chess_bitboard best_move;
     bool best_move_found = false;
@@ -443,16 +531,15 @@ bool movePieceMain(void)
                 //white to move //clear current pawn position
                 future_bitboard.white_pawns = future_bitboard.white_pawns & (~start_square_l) | future_square_l;
                 future_bitboard = helperClass::capture_square_black(future_bitboard, future_square_l);
-
                 future_bitboard.white_queens = future_bitboard.white_queens | (future_bitboard.white_pawns & white_pawn_end_row);//if queen, queen
                 future_bitboard.white_pawns = future_bitboard.white_pawns & (~white_pawn_end_row);
-
-
             }
             else {
                 //black to move//clear current pawn position
                 future_bitboard.black_pawns = future_bitboard.black_pawns & (~start_square_l) | future_square_l;
                 future_bitboard = helperClass::capture_square_white(future_bitboard, future_square_l);
+                future_bitboard.black_queens = future_bitboard.black_queens | (future_bitboard.black_pawns & black_pawn_end_row);//if queen, queen
+                future_bitboard.black_pawns = future_bitboard.black_pawns & (~black_pawn_end_row);
             }
             Game::chess_bitboard output_array[32];
             int number_elemts = helperClass::get_all_pawn_moves(current_game->bit_board, current_game->getCurrentTurn(), output_array);
@@ -489,6 +576,7 @@ bool movePieceMain(void)
                 Game::chess_bitboard n = future_moves_knights[i];
 
                 if (n == future_bitboard) {
+                    future_bitboard = n;
                     success = true;//we want to move the knight
                 }
             }
@@ -514,6 +602,7 @@ bool movePieceMain(void)
                 Game::chess_bitboard n = future_moves_bishops[i];
 
                 if (n == future_bitboard) {
+                    future_bitboard = n;
                     success = true;//we want to move the bishop
                 }
             }
@@ -539,6 +628,7 @@ bool movePieceMain(void)
                 Game::chess_bitboard n = future_moves_rooks[i];
 
                 if (n == future_bitboard) {
+                    future_bitboard = n;
                     success = true;//we want to move the rook
                 }
             }
@@ -564,6 +654,7 @@ bool movePieceMain(void)
                 Game::chess_bitboard n = future_moves_queens[i];
 
                 if (n == future_bitboard) {
+                    future_bitboard = n;
                     success = true;//we want to move the queen
                 }
             }
@@ -589,6 +680,7 @@ bool movePieceMain(void)
                 Game::chess_bitboard n = future_moves_kings[i];
 
                 if (n == future_bitboard) {
+                    future_bitboard = n;
                     success = true;//we want to move the king
                 }
             }
@@ -688,7 +780,7 @@ int main()
         auto t1 = chrono::high_resolution_clock::now();
         computerPlayMove(depth, -1000, 1000, current_game->getCurrentTurn());
         auto t2 = chrono::high_resolution_clock::now();
-        clearScreen();
+        //clearScreen();
         printBitBoard(*current_game);
         cout << "Computer thought for: " << duration_cast<chrono::seconds>(t2-t1) << endl;
         cout << "Current minimax value: " << current_minimax << endl;
