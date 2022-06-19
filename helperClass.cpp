@@ -1496,7 +1496,7 @@ int long long good_queens_bitboard = helperClass::vector_to_bitboard(good_queens
 int helperClass::getValueBitboard(Game::chess_bitboard c) {
 	int total = 0;
 	//basic
-	total += popcount(c.white_pawns) - popcount(c.black_pawns);
+	total += popcount(c.white_pawns) * 10 - popcount(c.black_pawns) * 10;
 	total += popcount(c.white_knights) * 30 - popcount(c.black_knights) * 30;
 	total += popcount(c.white_bishops) * 40 - popcount(c.black_bishops) * 40;
 	total += popcount(c.white_rooks) * 50 - popcount(c.black_rooks) * 50;
