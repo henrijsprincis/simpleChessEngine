@@ -2101,7 +2101,7 @@ vector<vector<char>> Game::getAllPieces() {
 */
 
 bool Game::isCheckMate() {
-    return ( !(bit_board.black_kings > 0ULL) && (bit_board.white_kings > 0ULL) );
+    return ( !((bit_board.black_kings > 0ULL) && (bit_board.white_kings > 0ULL)) );
 
 }
 
