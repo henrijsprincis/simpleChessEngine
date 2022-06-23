@@ -108,59 +108,11 @@ public:
    Game();
    ~Game();
 
-   /*
-   void movePiece( Position present, Position future, Chess::EnPassant* S_enPassant, Chess::Castling* S_castling, Chess::Promotion* S_promotion );
 
-   void undoLastMove();
+//   void logMove( std::string &to_record );
+//     string getLastMove( void );
+//     void deleteLastMove( void );
 
-   void undoLastMoveComputer();
-
-   bool undoIsPossible();
-
-   bool castlingAllowed( Side iSide, int iColor );
-
-   char getPieceAtPosition( int iRow, int iColumn );
-
-   char getPieceAtPosition( Position pos );
-
-   char getPiece_considerMove( int iRow, int iColumn, IntendedMove* intended_move = nullptr );
-
-   UnderAttack isUnderAttack( int iRow, int iColumn, int iColor, IntendedMove* pintended_move = nullptr );
-
-   bool isReachable( int iRow, int iColumn, int iColor );
-
-   bool isSquareOccupied( int iRow, int iColumn );
-
-   bool isPathFree( Position startingPos, Position finishingPos, int iDirection ); 
-
-   bool isPathFreeComputer(Position startingPos, Position finishingPos, int iDirection);
-
-
-   bool canBeBlocked( Position startingPos, Position finishinPos, int iDirection );
-
-   bool isKingInCheck( int iColor, IntendedMove* intended_move = nullptr );
-
-   bool playerKingInCheck( IntendedMove* intended_move = nullptr );
-
-   bool wouldKingBeInCheck( char chPiece, Position present, Position future, EnPassant* S_enPassant );
-
-   Position findKing( int iColor );
-
-   void changeTurns( void );
-
-   bool isFinished( void );
-
-   int getOpponentColor( void );
-
-   void parseMove( string move, Position* pFrom, Position* pTo, char* chPromoted = nullptr );
-
-   void logMove( std::string &to_record );
-  
-
-   string getLastMove( void );
-
-   void deleteLastMove( void );
-   */
    int getCurrentTurn(void);
    char getPieceAtPosition(int iRow, int iColumn);
    // Save all the moves
@@ -211,6 +163,7 @@ public:
        bool white_castle_queen = true;
        bool black_castle_queen = true;
 
+       bool white = true;//stores current turn
 
        bool operator == (const chess_bitboard& rhs) const
        { 
@@ -221,7 +174,9 @@ public:
                        if (this->white_rooks == rhs.white_rooks && this->black_rooks == rhs.black_rooks) {
                            if (this->white_kings == rhs.white_kings && this->black_kings == rhs.black_kings) {
                                if (this->white_queens == rhs.white_queens && this->black_queens == rhs.black_queens) {
-                                   return true;
+                                   if(this->white == rhs.white){
+                                        return true;
+                                   }
                                }
                            }
                        }

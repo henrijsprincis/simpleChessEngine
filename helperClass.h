@@ -28,13 +28,8 @@ public:
 	static unsigned long long path_vertical(unsigned long long current_pos, Game::chess_bitboard current_board, int white);
 	static unsigned long long path_diognal(unsigned long long current_pos, Game::chess_bitboard current_board, int white);
 	static unsigned long long path_diognal_one(unsigned long long current_pos, bool is_king);
-
 	static unsigned long long path_L(unsigned long long current_pos);
-	//all moves
-	struct all_moves {
-		Game::chess_bitboard* all_boards;
-		int number_of_moves;
-	};
+	
 	//moves specific
 	static unsigned long long pawn_forward(unsigned long long current_pos, int amount_forward);
 	static unsigned long long king_forward(unsigned long long current_pos, int amount_forward);
@@ -45,10 +40,21 @@ public:
 	static int get_all_rook_moves(Game::chess_bitboard current_board, int white, Game::chess_bitboard output_array[32]);
 	static int get_all_queen_moves(Game::chess_bitboard current_board, int white, Game::chess_bitboard output_array[32]);
 	static int get_all_king_moves(Game::chess_bitboard current_board, int white, Game::chess_bitboard output_array[8]);
-
 	static int get_all_castle_moves(Game::chess_bitboard current_board, int white, Game::chess_bitboard output_array[2]);
 
+	//hash function
+	static unsigned long long hash_board(Game::chess_bitboard board, unsigned long long zobrist_numbers[64 * 12]);
+	static unsigned long long hash_board(Game::chess_bitboard board_previous, Game::chess_bitboard board_current, unsigned long long hash, unsigned long long zobrist_numbers[64 * 12 + 1]);
+	
+	struct hash_type {
+		int board_value;
+		int depth_evaluated_at;
+		unsigned long long exact_hash;
+		//int alpha;
+		//int beta;
+		//Game::chess_bitboard exact_pos;
+	};
 
 
+	static unsigned long long get_random_num();
 };
-

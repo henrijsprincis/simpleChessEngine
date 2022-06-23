@@ -2,6 +2,7 @@
 #include "helperClass.h"
 #include <vector>
 #include <iostream>
+#include <random>
 #define NULL 69
 
 
@@ -1259,7 +1260,6 @@ int helperClass::get_all_rook_moves(Game::chess_bitboard current_board, int whit
 		current_rooks_iter = current_rooks_iter & (~l_start);
 		bit = helperClass::GetFirstSetBit(current_rooks_iter);
 	}
-
 	return counter;
 }
 
@@ -1491,10 +1491,22 @@ int long long good_bishops_bitboard = helperClass::vector_to_bitboard(good_bisho
 vector<vector<int>> good_queens = { {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,1,1,1,1,0,0}, {0,0,1,1,1,1,0,0}, {0,0,1,1,1,1,0,0}, {0,0,1,1,1,1,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0} };
 int long long good_queens_bitboard = helperClass::vector_to_bitboard(good_queens);
 
+vector<vector<int>> d1_centre = { {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,1,1,0,0,0}, {0,0,0,1,1,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0} };
+int long long d1_centre_bitboard = helperClass::vector_to_bitboard(d1_centre);
 
+vector<vector<int>> d2_centre = { {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,1,1,1,1,0,0}, {0,0,1,0,0,1,0,0}, {0,0,1,0,0,1,0,0}, {0,0,1,1,1,1,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0} };
+int long long d2_centre_bitboard = helperClass::vector_to_bitboard(d2_centre);
 
+vector<vector<int>> d3_centre = { {0,0,0,0,0,0,0,0}, {0,1,1,1,1,1,1,0}, {0,1,0,0,0,0,1,0}, {0,1,0,0,0,0,1,0}, {0,1,0,0,0,0,1,0}, {0,1,0,0,0,0,1,0}, {0,1,1,1,1,1,1,0}, {0,0,0,0,0,0,0,0} };
+int long long d3_centre_bitboard = helperClass::vector_to_bitboard(d3_centre);
+
+vector<vector<int>> d4_centre = { {1,1,1,1,1,1,1,1}, {1,0,0,0,0,0,0,1}, {1,0,0,0,0,0,0,1}, {1,0,0,0,0,0,0,1}, {1,0,0,0,0,0,0,1}, {1,0,0,0,0,0,0,1}, {1,0,0,0,0,0,0,1}, {1,1,1,1,1,1,1,1} };
+int long long d4_centre_bitboard = helperClass::vector_to_bitboard(d4_centre);
+
+//heuristic function
 int helperClass::getValueBitboard(Game::chess_bitboard c) {
 	int total = 0;
+	
 	//basic
 	total += popcount(c.white_pawns) * 10 - popcount(c.black_pawns) * 10;
 	total += popcount(c.white_knights) * 30 - popcount(c.black_knights) * 30;
@@ -1506,6 +1518,130 @@ int helperClass::getValueBitboard(Game::chess_bitboard c) {
 	total += popcount(c.white_knights & good_knight_bitboard) * 3 - popcount(c.black_knights & good_knight_bitboard) * 3;
 	total += popcount(c.white_bishops & good_bishops_bitboard) * 2 - popcount(c.black_bishops & good_bishops_bitboard) * 2;
 	total += popcount(c.white_queens & good_queens_bitboard) * 1 - popcount(c.black_queens & good_queens_bitboard) * 1;
+	//endgame should bring other king to edge of board.
+	if (Game::getNumberPieces(c) < 7) {//less than 7 pieces means endgame
+		total += popcount(c.white_kings & d4_centre_bitboard ) * -5 + popcount(c.black_kings & d4_centre_bitboard) * 5;//king at edge is weak
+		total += popcount(c.white_kings & d3_centre_bitboard) * -2 + popcount(c.black_kings & d3_centre_bitboard) * 2;
+		total += popcount(c.white_kings & d1_centre_bitboard) * 2 + popcount(c.black_kings & d1_centre_bitboard) * -2;
+
+	}
+
 
 	return total;
+}
+
+unsigned long long helperClass::get_random_num() {
+	unsigned long long rand1 = rand();
+	unsigned long long rand2 = rand();
+	rand1 = rand1 << 32;
+
+	return (rand1 + rand2); //% (max - min) + min;
+}
+
+unsigned long long hash_piece(unsigned long long current_hash, unsigned long long piece, int index, unsigned long long zobrist_numbers[64 * 12]) {
+	int bit_pos = helperClass::GetFirstSetBit(piece);
+	while (bit_pos != NULL) {
+		current_hash = current_hash ^ zobrist_numbers[index + bit_pos];
+		piece = piece & (~helperClass::SetNthBit(bit_pos));
+		bit_pos = helperClass::GetFirstSetBit(piece);
+	}
+	return current_hash;
+}
+
+//Hash function
+unsigned long long helperClass::hash_board(Game::chess_bitboard board, unsigned long long zobrist_numbers[64*12+1])
+{
+	//unsigned long helperClass::GetFirstSetBit(unsigned long long num)
+	unsigned long long hash = 0ULL;
+	unsigned long long bit_pos = NULL;
+	unsigned long long current_pieces;
+	unsigned long long ch;
+	current_pieces = board.black_pawns;
+	hash = hash_piece(hash, current_pieces, 0 * 64, zobrist_numbers);
+	current_pieces = board.black_knights;
+	hash = hash_piece(hash, current_pieces, 1 * 64, zobrist_numbers);//hash//96877282351918ULL
+	current_pieces = board.black_bishops;
+	hash = hash_piece(hash, current_pieces, 2 * 64, zobrist_numbers);
+	current_pieces = board.black_rooks;
+	hash = hash_piece(hash, current_pieces, 3 * 64, zobrist_numbers);
+	current_pieces = board.black_queens;
+	hash = hash_piece(hash, current_pieces, 4 * 64, zobrist_numbers);
+	current_pieces = board.black_kings;
+	hash = hash_piece(hash, current_pieces, 5 * 64, zobrist_numbers);
+	current_pieces = board.white_pawns;
+	hash = hash_piece(hash, current_pieces, 6 * 64, zobrist_numbers);
+	current_pieces = board.white_knights;
+	hash = hash_piece(hash, current_pieces, 7 * 64, zobrist_numbers);
+	current_pieces = board.white_bishops;
+	hash = hash_piece(hash, current_pieces, 8 * 64, zobrist_numbers);
+	current_pieces = board.white_rooks;
+	hash = hash_piece(hash, current_pieces, 9 * 64, zobrist_numbers);
+	current_pieces = board.white_queens;
+	hash = hash_piece(hash, current_pieces, 10 * 64, zobrist_numbers);
+	current_pieces = board.white_kings;
+	hash = hash_piece(hash, current_pieces, 11 * 64, zobrist_numbers);
+	if (board.white) {
+		unsigned long long z = zobrist_numbers[64 * 12];
+		hash ^= z;
+	}
+
+	return hash;
+}
+
+unsigned long long helperClass::hash_board(Game::chess_bitboard board_previous, Game::chess_bitboard board_current, unsigned long long hash, unsigned long long zobrist_numbers[64 * 12 + 1])
+{
+	//hash denotes the previous hash
+	if (board_previous.black_pawns != board_current.black_pawns) {
+		hash = hash_piece(hash, board_previous.black_pawns, 0 * 64, zobrist_numbers);
+		hash = hash_piece(hash, board_current.black_pawns, 0 * 64, zobrist_numbers);
+	}
+	if (board_previous.black_knights != board_current.black_knights) {
+		hash = hash_piece(hash, board_previous.black_knights, 1 * 64, zobrist_numbers);
+		hash = hash_piece(hash, board_current.black_knights, 1 * 64, zobrist_numbers);
+	}
+	if (board_previous.black_bishops != board_current.black_bishops) {
+		hash = hash_piece(hash, board_previous.black_bishops, 2 * 64, zobrist_numbers);
+		hash = hash_piece(hash, board_current.black_bishops, 2 * 64, zobrist_numbers);
+	}
+	if (board_previous.black_rooks != board_current.black_rooks) {
+		hash = hash_piece(hash, board_previous.black_rooks, 3 * 64, zobrist_numbers);
+		hash = hash_piece(hash, board_current.black_rooks, 3 * 64, zobrist_numbers);
+	}
+	if (board_previous.black_queens != board_current.black_queens) {
+		hash = hash_piece(hash, board_previous.black_queens, 4 * 64, zobrist_numbers);
+		hash = hash_piece(hash, board_current.black_queens, 4 * 64, zobrist_numbers);
+	}
+	if (board_previous.black_kings != board_current.black_kings) {
+		hash = hash_piece(hash, board_previous.black_kings, 5 * 64, zobrist_numbers);
+		hash = hash_piece(hash, board_current.black_kings, 5 * 64, zobrist_numbers);
+	}
+	//white
+	if (board_previous.white_pawns != board_current.white_pawns) {
+		hash = hash_piece(hash, board_previous.white_pawns, 6 * 64, zobrist_numbers);
+		hash = hash_piece(hash, board_current.white_pawns, 6 * 64, zobrist_numbers);
+	}
+	if (board_previous.white_knights != board_current.white_knights) {
+		hash = hash_piece(hash, board_previous.white_knights, 7 * 64, zobrist_numbers);
+		hash = hash_piece(hash, board_current.white_knights, 7 * 64, zobrist_numbers);
+	}
+	if (board_previous.white_bishops != board_current.white_bishops) {
+		hash = hash_piece(hash, board_previous.white_bishops, 8 * 64, zobrist_numbers);
+		hash = hash_piece(hash, board_current.white_bishops, 8 * 64, zobrist_numbers);
+	}
+	if (board_previous.white_rooks != board_current.white_rooks) {
+		hash = hash_piece(hash, board_previous.white_rooks, 9 * 64, zobrist_numbers);
+		hash = hash_piece(hash, board_current.white_rooks, 9 * 64, zobrist_numbers);
+	}
+	if (board_previous.white_queens != board_current.white_queens) {
+		hash = hash_piece(hash, board_previous.white_queens, 10 * 64, zobrist_numbers);
+		hash = hash_piece(hash, board_current.white_queens, 10 * 64, zobrist_numbers);
+	}
+	if (board_previous.white_kings != board_current.white_kings) {
+		hash = hash_piece(hash, board_previous.white_kings, 11 * 64, zobrist_numbers);
+		hash = hash_piece(hash, board_current.white_kings, 11 * 64, zobrist_numbers);
+	}
+	//we want to hash to either turn to white's turn or to turn to black's turn.
+	if(board_previous.white != board_current.white)
+		hash ^= zobrist_numbers[64 * 12];
+	return hash;
 }
