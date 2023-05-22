@@ -20,8 +20,5 @@ Open Chess_console.sln in Microsoft Visual Studio and click "Local Windows Debug
 ## Linux
 Coming soon!
 
-![image](https://github.com/henrijsprincis/simpleChessEngine/assets/38922533/d0546e69-0039-4d32-8593-b1e50f77b1a2)
 
-
-
-
+![image](https://github.com/henrijsprincis/simpleChessEngine/assets/38922533/e2427b44-5a7a-4bdd-b0c1-a379b80715e8)
