@@ -10,8 +10,10 @@ Main features:
 
 Under development:
 * Predictive branching
+* Openings
+* Tablebase
 
+![image](https://github.com/henrijsprincis/simpleChessEngine/assets/38922533/f68ac13d-f201-4576-9d34-3593bfd2187f)
 
-![image](https://github.com/henrijsprincis/simpleChessEngine/assets/38922533/5baccfd3-da2b-4476-9ab8-f212415795c1)
 
 
