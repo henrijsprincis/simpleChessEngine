@@ -10,6 +10,10 @@
 #include <unordered_map>
 #include <bitset>
 #include <ctime>
+#define NOMINMAX
+#include "windows.h"
+#include "atlimage.h"
+#include <algorithm>
 
 //---------------------------------------------------------------------------------------
 // Global variable
@@ -20,14 +24,14 @@ char chess_rows[9] = "12345678";
 int total_moves = 0;
 
 //hashing
-int hash_table_size = 10000000;// 100 000 00 (90mb)
+int hash_table_size = 1000000;// 100 000 00 (90mb) 90 - more like 300 :D
 unsigned long long no_element = 123456789ULL;
 helperClass::hash_type* hash_table = new helperClass::hash_type[hash_table_size];
 unsigned long long random_num_table[64*12+1];//64 squares * 6 pieces * 2 colours :) + white to move.
 int hash_collisions = 0;
 
 //minimax
-int depth_minimax = 8;
+int depth_minimax = 8;// doesn't do anything, iterative deepening is used now :)
 int capture_depth = 0;// after normal depth finished, the computer will return minimax of captures.
 int current_minimax = 0;
 int STOPPEDEARLY = 1234;
@@ -35,7 +39,7 @@ int STOPPEDEARLY = 1234;
 //Timing. we want to cut minimax search short sometimes
 auto t1 = chrono::high_resolution_clock::now();
 auto t2 = chrono::high_resolution_clock::now();
-int max_time_think_pc = 1;// in seconds
+int max_time_think_pc = 3;// in seconds
 
 void newGame(void)
 {
@@ -60,112 +64,49 @@ void update_current_board(Game::chess_bitboard future_board) {
 
 }
 
-int minimaxABCaptures(int depth, int alpha, int beta, int white) {
-    total_moves++;
-    //calculate all captures until a certain depth.
-        
-    
-    //current_game->vector_board = current_game->bitboardToChar();
-    //printBitBoard(*current_game);
-    //std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-    //clearScreen();
 
-    if (current_game->isCheckMate()) {
-        return popcount(current_game->bit_board.white_kings) * 1000 - popcount(current_game->bit_board.black_kings) * 1000;
-
-    }
-    if (depth == 0) {
-        //return heuristic evaluation function
-        return helperClass::getValueBitboard(current_game->bit_board);
-        //return helperClass::getValueBitboard(current_game->bit_board);
-    }
-    //move stuff
-    int number_elemts = 0;
-    int number_of_pieces = Game::getNumberPieces(current_game->bit_board);
-    int best_move_value = helperClass::getValueBitboard(current_game->bit_board);//captures can only improve the current value
-
-    Game::chess_bitboard output_array[48];
-    for (int c = 0; c < 7; c++) {
-        switch (c) {
-        case 0://pawn
-            number_elemts = helperClass::get_all_pawn_moves(current_game->bit_board, white, output_array);
-            break;
-        case 1:
-            number_elemts = helperClass::get_all_knight_moves(current_game->bit_board, white, output_array);
-            break;
-        case 2:
-            number_elemts = helperClass::get_all_bishop_moves(current_game->bit_board, white, output_array);
-            break;
-        case 3:
-            number_elemts = helperClass::get_all_rook_moves(current_game->bit_board, white, output_array);
-            break;
-        case 4:
-            number_elemts = helperClass::get_all_queen_moves(current_game->bit_board, white, output_array);
-            break;
-        case 5:
-            number_elemts = helperClass::get_all_king_moves(current_game->bit_board, white, output_array);
-            break;
-        case 6:
-            number_elemts = helperClass::get_all_castle_moves(current_game->bit_board, white, output_array);
-            break;
-        }
-
-        for (int i = 0; i < number_elemts; i++) {
-            update_current_board(output_array[i]);
-            if (number_of_pieces > Game::getNumberPieces(current_game->bit_board)){
-                if (white) {
-                    best_move_value = std::max(best_move_value, minimaxABCaptures(depth - 1, alpha, beta, 0));
-                    if (best_move_value >= beta) {
-                        undoMove();
-                        return best_move_value;
-                    }
-                    alpha = std::max(alpha, best_move_value);
-                }
-                else {
-                    best_move_value = std::min(best_move_value, minimaxABCaptures(depth - 1, alpha, beta, 1));
-                    if (best_move_value <= alpha) {
-                        undoMove();
-                        return best_move_value;
-                    }
-                    beta = std::min(beta, best_move_value);
-                }
-            }
-            undoMove();
-        }
-    }
-
-    return best_move_value;
-    
-}
-
-int minimaxAB(int depth, int alpha, int beta, int white, unsigned long long previous_hash, Game::chess_bitboard previous_board) {
+int minimaxAB(int depth, int alpha, int beta, int white, unsigned long long previous_hash, Game::chess_bitboard previous_board, bool captures_only) {
     total_moves++;
     Game::chess_bitboard current_board = current_game->bit_board;
     unsigned long long current_hash = helperClass::hash_board(previous_board, current_board, previous_hash, random_num_table);
     int hash_index = current_hash % hash_table_size;
-    if (hash_table[hash_index].board_value == no_element || hash_table[hash_index].exact_hash != current_hash || hash_table[hash_index].depth_evaluated_at < depth)
+    if (hash_table[hash_index].board_value == no_element || hash_table[hash_index].exact_hash != current_hash || hash_table[hash_index].depth_evaluated_at < depth)// not in hash table
     {
         if (current_game->isCheckMate()) {
             if (!current_game->bit_board.white) {//white to move but mate
+                hash_table[hash_index].board_value = 1000;
+                hash_table[hash_index].depth_evaluated_at = 100;
+                hash_table[hash_index].exact_hash = current_hash;
                 return 1000;
             }
             else {
+                hash_table[hash_index].board_value = -1000;
+                hash_table[hash_index].depth_evaluated_at = 100;
+                hash_table[hash_index].exact_hash = current_hash;
                 return -1000;//return popcount(current_game->bit_board.white_kings) * 1000 - popcount(current_game->bit_board.black_kings) * 1000;
             }
         }
         if (depth == 0) {
             //return heuristic evaluation function
-            //return minimaxABCaptures(capture_depth, alpha, beta, white);
-            return helperClass::getValueBitboard(current_game->bit_board);
+            if (captures_only == false)
+                return minimaxAB(capture_depth, alpha, beta, white, current_hash, current_board, true);
+            else
+                return helperClass::getValueBitboard(current_game->bit_board);
         }
     //move stuff
     int best_move_value = 1000;
+    int number_of_pieces = Game::getNumberPieces(current_game->bit_board);
     if (white) {
         best_move_value = -1000;
     }
+    if (captures_only) {
+        best_move_value = helperClass::getValueBitboard(current_game->bit_board);
+    }
+    int current_number_pieces;
         Game::chess_bitboard output_array[48];
         for (int c = 0; c < 7; c++) {
             int number_elemts = 0;
+            
             switch (c) {
                 case 0://pawn
                     //if(white && current_game->bit_board.white_pawns > 0ULL  || !white && current_game->bit_board.black_pawns > 0ULL)
@@ -195,26 +136,55 @@ int minimaxAB(int depth, int alpha, int beta, int white, unsigned long long prev
                     number_elemts = helperClass::get_all_castle_moves(current_game->bit_board, white, output_array);
                     break;
                 }
+            //after geting all of the moves, check all captures first.
             for (int i = 0; i < number_elemts; i++) {
                 update_current_board(output_array[i]);
-                if (white) {
-                    best_move_value = std::max(best_move_value, minimaxAB(depth - 1, alpha, beta, 0, current_hash, current_board));
-                    if (best_move_value >= beta) {
-                        undoMove();
-                        return best_move_value;
+                if (number_of_pieces > Game::getNumberPieces(current_game->bit_board)) {//first check all of the captures, then check the rest
+                    if (white) {
+                        best_move_value = std::max(best_move_value, minimaxAB(depth - 1, alpha, beta, 0, current_hash, current_board, false + captures_only));//omg this is nasty
+                        if (best_move_value >= beta) {
+                            undoMove();
+                            return best_move_value;
+                        }
+                        alpha = std::max(alpha, best_move_value);
                     }
-                    alpha = std::max(alpha, best_move_value);
-                }
-                else {
-                    best_move_value = std::min(best_move_value, minimaxAB(depth - 1, alpha, beta, 1, current_hash, current_board));
-                    if (best_move_value <= alpha) {
-                        undoMove();
-                        return best_move_value;
+                    else {
+                        best_move_value = std::min(best_move_value, minimaxAB(depth - 1, alpha, beta, 1, current_hash, current_board, false + captures_only));
+                        if (best_move_value <= alpha) {
+                            undoMove();
+                            return best_move_value;
+                        }
+                        beta = std::min(beta, best_move_value);
                     }
-                    beta = std::min(beta, best_move_value);
                 }
                 undoMove();
             }
+            //then check rest of the moves
+            for (int i = 0; i < number_elemts; i++) {
+                update_current_board(output_array[i]);
+                if (!captures_only) {//first check all of the captures, then check the rest
+                    if (white) {
+                        best_move_value = std::max(best_move_value, minimaxAB(depth - 1, alpha, beta, 0, current_hash, current_board, false + captures_only));//omg this is nasty
+                        if (best_move_value >= beta) {
+                            undoMove();
+                            return best_move_value;
+                        }
+                        alpha = std::max(alpha, best_move_value);
+                    }
+                    else {
+                        best_move_value = std::min(best_move_value, minimaxAB(depth - 1, alpha, beta, 1, current_hash, current_board, false + captures_only));
+                        if (best_move_value <= alpha) {
+                            undoMove();
+                            return best_move_value;
+                        }
+                        beta = std::min(beta, best_move_value);
+                    }
+                }
+                undoMove();
+            }
+            
+
+
         }
     
         hash_table[hash_index].board_value = best_move_value;
@@ -228,6 +198,136 @@ int minimaxAB(int depth, int alpha, int beta, int white, unsigned long long prev
         return hash_table[hash_index].board_value;//move in hash table
     }
 }
+
+bool operator<(helperClass::board_value const& a, helperClass::board_value const& b)
+{
+    return a.static_evaluation < b.static_evaluation;
+}
+
+int minimaxABpredictive(int depth, int alpha, int beta, int white, unsigned long long previous_hash, Game::chess_bitboard previous_board, bool captures_only) {
+    //idea is to sort the moves from best to worst and examine worst moves in lower depth
+    total_moves++;
+    Game::chess_bitboard current_board = current_game->bit_board;
+    unsigned long long current_hash = helperClass::hash_board(previous_board, current_board, previous_hash, random_num_table);
+    int hash_index = current_hash % hash_table_size;
+    if (hash_table[hash_index].board_value == no_element || hash_table[hash_index].exact_hash != current_hash || hash_table[hash_index].depth_evaluated_at < depth)// not in hash table
+    {
+        if (current_game->isCheckMate()) {
+            if (!current_game->bit_board.white) {//white to move but mate
+                hash_table[hash_index].board_value = 1000;
+                hash_table[hash_index].depth_evaluated_at = 100;
+                hash_table[hash_index].exact_hash = current_hash;
+                return 1000;
+            }
+            else {
+                hash_table[hash_index].board_value = -1000;
+                hash_table[hash_index].depth_evaluated_at = 100;
+                hash_table[hash_index].exact_hash = current_hash;
+                return -1000;//return popcount(current_game->bit_board.white_kings) * 1000 - popcount(current_game->bit_board.black_kings) * 1000;
+            }
+        }
+        if (depth == 0) {
+            //return heuristic evaluation function
+            if (captures_only == false)
+                return minimaxAB(capture_depth, alpha, beta, white, current_hash, current_board, true);
+            else
+                return helperClass::getValueBitboard(current_game->bit_board);
+        }
+        //move stuff
+        int best_move_value = 1000;
+        int number_of_pieces = Game::getNumberPieces(current_game->bit_board);
+        if (white) {
+            best_move_value = -1000;
+        }
+        if (captures_only) {
+            best_move_value = helperClass::getValueBitboard(current_game->bit_board);
+        }
+        int current_number_pieces;
+        Game::chess_bitboard* output_array = new Game::chess_bitboard[32];
+        helperClass::board_value* arr = new helperClass::board_value[50];//im assuming there won't be 100 moves available... i hope
+
+        int number_elemts = 0;
+        int number_elements_helper = 0;
+        for (int c = 0; c < 7; c++) {
+            switch (c) {
+            case 0://pawn
+                //if(white && current_game->bit_board.white_pawns > 0ULL  || !white && current_game->bit_board.black_pawns > 0ULL)
+                number_elemts = helperClass::get_all_pawn_moves(current_game->bit_board, white, output_array);
+                break;
+            case 1:
+                //if (white && current_game->bit_board.white_knights > 0ULL || !white && current_game->bit_board.black_knights > 0ULL)
+                number_elemts = helperClass::get_all_knight_moves(current_game->bit_board, white, output_array);
+                break;
+            case 2:
+                //if (white && current_game->bit_board.white_bishops > 0ULL || !white && current_game->bit_board.black_bishops > 0ULL)
+                number_elemts = helperClass::get_all_bishop_moves(current_game->bit_board, white, output_array);
+                break;
+            case 3:
+                //if (white && current_game->bit_board.white_rooks > 0ULL || !white && current_game->bit_board.black_rooks > 0ULL)
+                number_elemts = helperClass::get_all_rook_moves(current_game->bit_board, white, output_array);
+                break;
+            case 4:
+                //if (white && current_game->bit_board.white_queens > 0ULL || !white && current_game->bit_board.black_queens > 0ULL)
+                number_elemts = helperClass::get_all_queen_moves(current_game->bit_board, white, output_array);
+                break;
+            case 5:
+                number_elemts = helperClass::get_all_king_moves(current_game->bit_board, white, output_array);
+                break;
+            case 6:
+                //if ( (white && current_game->bit_board.white_castle_king || current_game->bit_board.white_castle_king) || (!white && current_game->bit_board.black_castle_king || current_game->bit_board.black_castle_queen) )
+                number_elemts = helperClass::get_all_castle_moves(current_game->bit_board, white, output_array);
+                break;
+            }
+            //store all of the moves along with their static evaluation in arr
+            for (int i = 0; i < number_elemts; i++) {
+                arr[number_elements_helper + i].future_pos = output_array[i];
+                arr[number_elements_helper + i].static_evaluation = helperClass::getValueBitboard(output_array[i]);
+            }
+            number_elements_helper += number_elemts;
+        }
+        //now that we have all move valuations, sort them by value and explore promising branches at more depth
+        std::sort(arr, arr + number_elements_helper);
+        //the first moves should be evaluated at most depth
+        if (white) {
+            for (int i = number_elements_helper; i >= 0; i--) {
+                update_current_board(arr[i].future_pos);
+                if (!captures_only) {//first check all of the captures, then check the rest
+                    best_move_value = std::max(best_move_value, minimaxABpredictive(depth - 1, alpha, beta, 0, current_hash, current_board, false));//omg this is nasty
+                    if (best_move_value >= beta) {
+                        undoMove();
+                        return best_move_value;
+                    }
+                    alpha = std::max(alpha, best_move_value);
+                }
+                undoMove();
+            }
+        }
+        else {
+            for (int i = 0; i < number_elements_helper; i++) {
+                update_current_board(arr[i].future_pos);
+                best_move_value = std::min(best_move_value, minimaxABpredictive(depth - 1, alpha, beta, 1, current_hash, current_board, false));
+                if (best_move_value <= alpha) {
+                    undoMove();
+                    return best_move_value;
+                }
+                beta = std::min(beta, best_move_value);
+            }
+        }
+
+
+        hash_table[hash_index].board_value = best_move_value;
+        hash_table[hash_index].depth_evaluated_at = depth;
+        hash_table[hash_index].exact_hash = current_hash;
+        return best_move_value;
+    }
+    else
+    {
+        hash_collisions += 1;
+        return hash_table[hash_index].board_value;//move in hash table
+    }
+}
+
+
 
 Game::chess_bitboard computerGetMove(int depth, int alpha, int beta, int white, unsigned long long previous_hash, Game::chess_bitboard previous_board) {
     total_moves++;
@@ -247,9 +347,9 @@ Game::chess_bitboard computerGetMove(int depth, int alpha, int beta, int white, 
     }
     //move stuff
     int number_elemts = 0;
-    int best_move_value = 1000;
+    int best_move_value = 1001;
     if (white) {
-        best_move_value = -1000;
+        best_move_value = -1001;
     }
     Game::chess_bitboard current_board = current_game->bit_board;
     unsigned long long current_hash = helperClass::hash_board(previous_board, current_board, previous_hash, random_num_table);
@@ -289,7 +389,7 @@ Game::chess_bitboard computerGetMove(int depth, int alpha, int beta, int white, 
             }
             update_current_board(output_array[i]);
             if (white) {
-                int board_value = minimaxAB(depth - 1, alpha, beta, 0, current_hash, current_board);
+                int board_value = minimaxAB(depth - 1, alpha, beta, 0, current_hash, current_board, false);
                 if (board_value > best_move_value)
                     best_move = output_array[i];
                 best_move_value = std::max(best_move_value, board_value);
@@ -300,7 +400,7 @@ Game::chess_bitboard computerGetMove(int depth, int alpha, int beta, int white, 
                 alpha = std::max(alpha, best_move_value);
             }
             else {
-                int board_value = minimaxAB(depth - 1, alpha, beta, 1, current_hash, current_board);
+                int board_value = minimaxAB(depth - 1, alpha, beta, 1, current_hash, current_board, false);
                 if (board_value < best_move_value)
                     best_move = output_array[i];
                 best_move_value = std::min(best_move_value, board_value);
@@ -656,6 +756,52 @@ void initilize_hash_table() {
     random_num_table[64 * 12] = helperClass::get_random_num();
 }
 
+
+//screen capture
+void TakeScreenShot(const std::string& path)
+{
+    //setting to the screen shot
+    keybd_event(VK_SNAPSHOT, 0x45, KEYEVENTF_EXTENDEDKEY, 0);
+    keybd_event(VK_SNAPSHOT, 0x45, KEYEVENTF_EXTENDEDKEY | KEYEVENTF_KEYUP, 0);
+
+    //handler of the bitmap that save the screen shot
+    HBITMAP hBitmap;
+
+    //I have to give for it time to make it work in pratica guarda
+    Sleep(1000); //Modified
+
+    //take the screen shot
+    OpenClipboard(NULL);
+
+    //save the screen shot in the bitmap handler
+    hBitmap = (HBITMAP)GetClipboardData(CF_BITMAP);
+
+    //relese the screen shot
+    CloseClipboard();
+
+    std::vector<BYTE> buf;
+    IStream* stream = NULL;
+    HRESULT hr = CreateStreamOnHGlobal(0, TRUE, &stream);
+    CImage image;
+    ULARGE_INTEGER liSize;
+
+    // screenshot to jpg and save to stream
+    image.Attach(hBitmap);
+    image.Save(stream, Gdiplus::ImageFormatJPEG);
+    IStream_Size(stream, &liSize);
+    DWORD len = liSize.LowPart;
+    IStream_Reset(stream);
+    buf.resize(len);
+    IStream_Read(stream, &buf[0], len);
+    stream->Release();
+
+    // put the imapge in the file
+    std::fstream fi;
+    fi.open(path, std::fstream::binary | std::fstream::out);
+    fi.write(reinterpret_cast<const char*>(&buf[0]), buf.size() * sizeof(BYTE));
+    fi.close();
+}
+
 int main()
 {
     bool bRun = true;
@@ -672,9 +818,15 @@ int main()
     string input = "";
     cout << "PC will think for more than: " << max_time_think_pc << " seconds" << endl;
     bool checkmate_found = false;
+    string filename{ "C:\\Users\\henri\\My Drive\\Coding Training\\Cpp projects\\github\\simpleChessEngine\\screenshots\\capture" };
+    int counter = 0;
     while (true){
-        
+        counter++;
         if(movePieceMain()){
+        if (current_game->isCheckMate()) {
+            cout << "checkmate reached " << endl;
+            break;
+        }
             clearScreen();
             printBitBoard(*current_game);
             cout << "Computer thinking" << endl;
@@ -683,7 +835,6 @@ int main()
             unsigned long long starting_hash = helperClass::hash_board(current_game->bit_board, random_num_table);
             Game::chess_bitboard previous_best_move = computerGetMove(1, -2000, 2000, current_game->getCurrentTurn(), starting_hash, current_game->bit_board);// this move will come from a good evaluation.
             Game::chess_bitboard current_best_move;// this move will come from incomplete evaluation that returned early because time expired.
-            
 
             for (i = 2; i < 20; i++) {
                 if (checkmate_found) {
@@ -705,6 +856,7 @@ int main()
                     previous_best_move = current_best_move;
                 }
             }
+            
             update_current_board(current_best_move);
 
             //reset_hash_table();
@@ -717,6 +869,8 @@ int main()
             cout << "Hash collisions or transpositions: " << hash_collisions << endl;
             total_moves = 0;
             hash_collisions = 0;
+            
+
             
             
         }

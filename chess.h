@@ -162,8 +162,12 @@ public:
 
        bool white_castle_queen = true;
        bool black_castle_queen = true;
-
+       
+       bool black_castled = false;
+       bool white_castled = false;
        bool white = true;//stores current turn
+
+
 
        bool operator == (const chess_bitboard& rhs) const
        { 

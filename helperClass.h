@@ -54,6 +54,10 @@ public:
 		//int beta;
 		//Game::chess_bitboard exact_pos;
 	};
+	struct board_value {
+		Game::chess_bitboard future_pos;
+		int static_evaluation;
+	};
 
 
 	static unsigned long long get_random_num();

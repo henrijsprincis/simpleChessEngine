@@ -1419,6 +1419,7 @@ int helperClass::get_all_castle_moves(Game::chess_bitboard current_board, int wh
 				output_array[counter].white_rooks = output_array[counter].white_rooks & (~white_rook_king_bitboard) | square_1;
 				output_array[counter].white_castle_king = false;
 				output_array[counter].white_castle_queen = false;
+				output_array[counter].white_castled = true;
 				counter++;
 			}
 		}
@@ -1435,6 +1436,7 @@ int helperClass::get_all_castle_moves(Game::chess_bitboard current_board, int wh
 				output_array[counter].white_rooks = output_array[counter].white_rooks & (~white_rook_queen_bitboard) | square_1;
 				output_array[counter].white_castle_king = false;
 				output_array[counter].white_castle_queen = false;
+				output_array[counter].black_castled = true;
 				counter++;
 			}
 		}
@@ -1491,6 +1493,12 @@ int long long good_bishops_bitboard = helperClass::vector_to_bitboard(good_bisho
 vector<vector<int>> good_queens = { {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,1,1,1,1,0,0}, {0,0,1,1,1,1,0,0}, {0,0,1,1,1,1,0,0}, {0,0,1,1,1,1,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0} };
 int long long good_queens_bitboard = helperClass::vector_to_bitboard(good_queens);
 
+vector<vector<int>> good_pawns_white = { {0,0,0,0,0,0,1,0}, {0,0,0,0,0,1,1,0}, {0,0,0,1,1,1,1,0}, {0,0,0,1,1,1,1,0}, {0,0,0,1,1,1,1,0}, {0,0,0,1,1,1,1,0}, {0,0,0,0,0,1,1,0}, {0,0,0,0,0,0,1,0} };
+int long long good_pawns_white_bitboard = helperClass::vector_to_bitboard(good_pawns_white);
+
+vector<vector<int>> good_pawns_black = { {0,1,0,0,0,0,0,0}, {0,1,1,0,0,0,0,0}, {0,1,1,1,1,0,0,0}, {0,1,1,1,1,0,0,0}, {0,1,1,1,1,0,0,0}, {0,1,1,1,1,0,0,0}, {0,1,1,0,0,0,0,0}, {0,1,0,0,0,0,0,0} };
+int long long good_pawns_black_bitboard = helperClass::vector_to_bitboard(good_pawns_black);
+
 vector<vector<int>> d1_centre = { {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,1,1,0,0,0}, {0,0,0,1,1,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0} };
 int long long d1_centre_bitboard = helperClass::vector_to_bitboard(d1_centre);
 
@@ -1515,15 +1523,20 @@ int helperClass::getValueBitboard(Game::chess_bitboard c) {
 	total += popcount(c.white_kings) * 1000 - popcount(c.black_kings) * 1000;
 	total += popcount(c.white_queens) * 90 - popcount(c.black_queens) * 90;
 	//advanced
+	total += popcount(c.white_pawns & good_pawns_white_bitboard) - popcount(c.black_pawns & good_pawns_black_bitboard);
 	total += popcount(c.white_knights & good_knight_bitboard) * 3 - popcount(c.black_knights & good_knight_bitboard) * 3;
 	total += popcount(c.white_bishops & good_bishops_bitboard) * 2 - popcount(c.black_bishops & good_bishops_bitboard) * 2;
 	total += popcount(c.white_queens & good_queens_bitboard) * 1 - popcount(c.black_queens & good_queens_bitboard) * 1;
+	//very center of the board should have more value for knights
+	total += popcount(c.white_knights & d1_centre_bitboard) * 6 - popcount(c.black_knights & d1_centre_bitboard) * 6;
+	//should also considered has castled
+	total += c.white_castled * 10 - c.black_castled * 10;
+
 	//endgame should bring other king to edge of board.
 	if (Game::getNumberPieces(c) < 7) {//less than 7 pieces means endgame
 		total += popcount(c.white_kings & d4_centre_bitboard ) * -5 + popcount(c.black_kings & d4_centre_bitboard) * 5;//king at edge is weak
 		total += popcount(c.white_kings & d3_centre_bitboard) * -2 + popcount(c.black_kings & d3_centre_bitboard) * 2;
 		total += popcount(c.white_kings & d1_centre_bitboard) * 2 + popcount(c.black_kings & d1_centre_bitboard) * -2;
-
 	}
 
 
@@ -1645,3 +1658,5 @@ unsigned long long helperClass::hash_board(Game::chess_bitboard board_previous, 
 		hash ^= zobrist_numbers[64 * 12];
 	return hash;
 }
+
+
