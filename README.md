@@ -13,10 +13,11 @@ Under development:
 * Openings
 * Tablebase
 
-Instructions to run for Windows:
-open Chess_console.sln in Microsoft Visual Studio and click "Local Windows Debugger"
+#Instructions to Run
+##Windows
+Open Chess_console.sln in Microsoft Visual Studio and click "Local Windows Debugger"
 
-Instructions for linux:
+##Linux
 Coming soon!
 
 ![image](https://github.com/henrijsprincis/simpleChessEngine/assets/38922533/d0546e69-0039-4d32-8593-b1e50f77b1a2)
