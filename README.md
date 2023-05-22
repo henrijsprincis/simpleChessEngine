@@ -6,7 +6,7 @@ Main features:
 * Minimax search with alpha beta pruning
 * Zobrist hashing
 * Bitboards for move generation
-* Iterative deepening based on a timeout
+* Iterative deepening
 
 Under development:
 * Predictive branching
